@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">Carry</string>
+
+    <!-- Error view -->
+    <string name="error_no_network_title">No Internet Connection</string>
+    <string name="error_no_network_message">Please check your network settings and try again.</string>
+    <string name="error_server_title">Something Went Wrong</string>
+    <string name="error_server_message">We\'re having trouble connecting. Please try again later.</string>
+    <string name="error_ssl_title">Connection Not Secure</string>
+    <string name="error_ssl_message">A secure connection could not be established.</string>
+    <string name="error_retry">Retry</string>
+
+    <!-- Biometric -->
+    <string name="biometric_prompt_negative">Cancel</string>
+
+    <!-- Notifications -->
+    <string name="notification_channel_id">carry_default</string>
+    <string name="notification_channel_name">General</string>
+    <string name="notification_channel_description">General notifications</string>
+</resources>

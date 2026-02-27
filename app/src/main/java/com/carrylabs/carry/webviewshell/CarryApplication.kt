@@ -4,11 +4,14 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import com.kakao.sdk.common.KakaoSdk
+
 class CarryApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
+        initKakaoSdk()
     }
 
     private fun createNotificationChannel() {
@@ -27,5 +30,12 @@ class CarryApplication : Application() {
         val notificationManager =
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         notificationManager.createNotificationChannel(channel)
+    }
+
+    private fun initKakaoSdk() {
+        val kakaoClientId = BuildConfig.KAKAO_CLIENT_ID
+        if (kakaoClientId.isNotEmpty()) {
+            KakaoSdk.init(this, kakaoClientId)
+        }
     }
 }

@@ -1,6 +1,6 @@
 # CarryWebViewShell
 
-Carry 서비스의 Android WebView Shell 앱. 웹 앱을 네이티브 WebView로 래핑하고, JavaScript Bridge를 통해 네이티브 기능(생체인증, 위치, 카메라, 푸시 등)을 웹에 노출한다.
+Carry 서비스의 Android WebView Shell 앱. 웹 앱을 네이티브 WebView로 래핑하고, JavaScript Bridge를 통해 네이티브 기능(생체인증, 위치, 카메라, 푸시, 보안 토큰 저장, 인앱 업데이트 등)을 웹에 노출한다.
 
 ## 아키텍처
 
@@ -13,9 +13,14 @@ MainActivity
 ├── Handler 클래스들
 │   ├── BiometricRequestHandler
 │   ├── LocationRequestHandler
-│   ├── MediaRequestHandler
-│   └── LoginRequestHandler
+│   ├── MediaRequestHandler   ← ImageCompressor로 자동 이미지 압축
+│   └── LoginRequestHandler   ← Kakao SDK 네이티브 로그인
 ├── PermissionHandler          ← 런타임 권한 요청 통합
+├── Util 클래스들
+│   ├── SecureTokenManager     ← EncryptedSharedPreferences 기반 보안 토큰
+│   ├── ImageCompressor        ← 이미지 다운샘플링 + JPEG 압축
+│   ├── InAppUpdateManager     ← Google Play In-App Update
+│   └── NetworkUtils           ← 네트워크 상태 감지 (type, metered 포함)
 ├── SplashLoadingView / ErrorView
 └── WebViewEventDispatcher     ← FCM 등 외부 컴포넌트 → WebView 이벤트 전달
 ```
@@ -30,13 +35,12 @@ app/src/main/java/com/carrylabs/carry/webviewshell/
 │   ├── CarryBridge.kt                 # @JavascriptInterface (JS → Native)
 │   ├── NativeCallDispatcher.kt        # Native → JS 함수 호출
 │   ├── BridgeResult.kt                # 비동기 콜백 결과 DTO
-│   ├── BridgeCallbackManager.kt       # requestId 생성
 │   ├── WebViewEventDispatcher.kt      # 이벤트 디스패처 인터페이스 + Registry
 │   └── handlers/
 │       ├── BiometricRequestHandler.kt # 생체인증
 │       ├── LocationRequestHandler.kt  # GPS 위치 + Geolocation 권한
-│       ├── MediaRequestHandler.kt     # 카메라 / 갤러리 / 파일 선택
-│       └── LoginRequestHandler.kt     # 카카오 OAuth 로그인
+│       ├── MediaRequestHandler.kt     # 카메라 / 갤러리 / 파일 선택 + 이미지 압축
+│       └── LoginRequestHandler.kt     # 카카오 SDK 네이티브 로그인
 ├── webview/
 │   ├── WebViewSetup.kt                # WebView 설정 (UA, 캐시, 혼합 콘텐츠 등)
 │   ├── CarryWebViewClient.kt          # URL 스킴 처리 (intent://, 결제앱 등)
@@ -55,7 +59,10 @@ app/src/main/java/com/carrylabs/carry/webviewshell/
     ├── DeviceInfo.kt                  # 디바이스 정보 수집
     ├── BiometricHelper.kt             # 생체인증 유틸리티
     ├── FileProviderHelper.kt          # 카메라 촬영 URI 생성
-    └── NetworkUtils.kt                # 네트워크 상태 감지
+    ├── NetworkUtils.kt                # 네트워크 상태 감지 (type, metered)
+    ├── SecureTokenManager.kt          # EncryptedSharedPreferences 보안 토큰
+    ├── ImageCompressor.kt             # 이미지 다운샘플링 + JPEG 압축
+    └── InAppUpdateManager.kt          # Google Play In-App Update API
 ```
 
 ## JavaScript Bridge API
@@ -76,6 +83,10 @@ WebView에서 `window.AndroidBridge` (또는 `window.CarryNative`)로 접근한�
 | `shareUrl(title, url)` | `void` | URL 공유 (shareText alias) |
 | `copyToClipboard(text)` | `void` | 클립보드 복사 |
 | `readClipboard()` | `string` | 클립보드 읽기 |
+| `getNetworkStatus()` | `string` (JSON) | 네트워크 상태 (`{isConnected, type, isMetered}`) |
+| `saveSecureToken(key, value)` | `void` | 암호화 토큰 저장 (EncryptedSharedPreferences) |
+| `getSecureToken(key)` | `string` | 암호화 토큰 읽기 |
+| `removeSecureToken(key)` | `void` | 암호화 토큰 삭제 |
 
 ### 비동기 메서드
 
@@ -85,10 +96,13 @@ WebView에서 `window.AndroidBridge` (또는 `window.CarryNative`)로 접근한�
 |---|---|
 | `requestBiometric(title, description)` | 생체인증 요청 |
 | `requestLocation()` | GPS 위치 요청 |
-| `requestCamera()` | 카메라 촬영 |
-| `openGallery()` | 갤러리 이미지 선택 |
-| `requestLogin()` | 카카오 OAuth 로그인 |
+| `requestCamera()` | 카메라 촬영 (자동 압축: 1024x1024, quality 80) |
+| `requestCamera(maxWidth, maxHeight, quality)` | 카메라 촬영 (압축 옵션 지정) |
+| `openGallery()` | 갤러리 이미지 선택 (자동 압축) |
+| `openGallery(maxWidth, maxHeight, quality)` | 갤러리 이미지 선택 (압축 옵션 지정) |
+| `requestLogin()` | 카카오 SDK 네이티브 로그인 (accessToken 반환) |
 | `requestNotificationPermission()` | 알림 권한 요청 |
+| `checkAppUpdate()` | Google Play 인앱 업데이트 확인 |
 | `openExternalBrowser(url)` | 외부 브라우저(Chrome Custom Tab)로 URL 열기 |
 | `closeApp()` | 앱 종료 |
 
@@ -96,11 +110,35 @@ WebView에서 `window.AndroidBridge` (또는 `window.CarryNative`)로 접근한�
 
 ```json
 {
-  "requestId": "req_1234567890",
+  "requestId": "uuid-string",
   "success": true,
   "data": { ... },
   "error": "에러 메시지 (실패 시)"
 }
+```
+
+**카메라/갤러리 응답 (`requestCamera`, `openGallery`):**
+
+```json
+{
+  "uri": "content://...",
+  "originalUri": "content://...",
+  "width": 1024,
+  "height": 768,
+  "fileSize": 245760
+}
+```
+
+**카카오 로그인 응답 (`requestLogin`):**
+
+```json
+{ "accessToken": "access_token_here" }
+```
+
+**인앱 업데이트 응답 (`checkAppUpdate`):**
+
+```json
+{ "available": true, "storeVersion": 5 }
 ```
 
 ### Native → JS 이벤트
@@ -109,11 +147,19 @@ WebView에서 `window.AndroidBridge` (또는 `window.CarryNative`)로 접근한�
 
 | JS 함수 | 트리거 |
 |---|---|
-| `window.onLoginComplete(token)` | 카카오 로그인 완료 |
+| `window.onLoginComplete(token)` | 카카오 로그인 완료 (accessToken 전달) |
 | `window.onNativeBackPressed()` | 네이티브 뒤로가기 버튼 (정의되어 있으면 호출) |
 | `window.onPushNotification(data)` | 포그라운드 푸시 수신 |
 | `window.onAppResume()` | 앱이 포그라운드로 복귀 |
-| `window.CarryBridge.__onNativeEvent(name, data)` | 범용 이벤트 (`connectivityChanged`, `deepLink`, `appResumed`) |
+| `window.CarryBridge.__onNativeEvent(name, data)` | 범용 이벤트 (아래 표 참조) |
+
+**범용 이벤트 (`__onNativeEvent`):**
+
+| 이벤트명 | 데이터 | 설명 |
+|---|---|---|
+| `connectivityChanged` | `{isConnected, type: "wifi"\|"cellular"\|"none", isMetered}` | 네트워크 상태 변경 |
+| `deepLink` | `{url}` | 딥링크로 앱 진입 |
+| `appUpdateAvailable` | `{available, storeVersion}` | 앱 시작 시 Play Store 업데이트 가능 |
 
 ## 빌드 환경
 
@@ -154,7 +200,8 @@ WebView에서 `window.AndroidBridge` (또는 `window.CarryNative`)로 접근한�
 
 - **Custom Scheme**: `carry://` — `carry://path`가 `BASE_URL + /path`로 매핑
 - **App Links**: `https://app.carry.com/*`
-- **OAuth 콜백**: `carry://oauth/kakao?code=xxx` — 카카오 로그인 결과 처리
+
+> 카카오 로그인은 Kakao SDK가 자체적으로 리다이렉트를 처리하므로 별도 딥링크 핸들링이 필요 없다.
 
 ## URL 스킴 처리
 
@@ -178,8 +225,25 @@ WebView에서 발생하는 외부 URL 스킴을 처리한다:
 
 ## 설정
 
-- **`KAKAO_CLIENT_ID`**: 각 flavor의 `build.gradle.kts`에 카카오 OAuth 클라이언트 ID 설정
+- **`KAKAO_CLIENT_ID`**: 각 flavor의 `build.gradle.kts`에 카카오 클라이언트 ID 설정. `CarryApplication`에서 `KakaoSdk.init()`으로 초기화됨
 - **`google-services.json`**: 각 flavor 디렉토리(`app/src/dev/`, `app/src/staging/`, `app/src/prod/`)에 Firebase 설정 파일 배치
+
+## 주요 의존성
+
+| 라이브러리 | 버전 | 용도 |
+|---|---|---|
+| `androidx.security:security-crypto` | 1.1.0-alpha06 | EncryptedSharedPreferences (보안 토큰 저장) |
+| `com.google.android.play:app-update-ktx` | 2.1.0 | Google Play In-App Update |
+| `com.kakao.sdk:v2-user` | 2.20.6 | 카카오 SDK 네이티브 로그인 |
+| `com.google.firebase:firebase-bom` | 33.7.0 | FCM 푸시 |
+| `com.google.android.gms:play-services-location` | 21.3.0 | GPS 위치 |
+| `androidx.biometric:biometric` | 1.1.0 | 생체인증 |
+
+> 전체 의존성 목록은 `gradle/libs.versions.toml` 참조
+
+## 프론트엔드 핸드오프
+
+브릿지 API 변경사항, JavaScript 사용 예시, Breaking Changes 등은 [`NATIVE_BRIDGE_CHANGES.md`](./NATIVE_BRIDGE_CHANGES.md)를 참조.
 
 ## 프로젝트 범위와 의도적 생략 사항
 
@@ -195,6 +259,10 @@ WebView에서 발생하는 외부 URL 스킴을 처리한다:
 - Safe Browsing API, SSL pinning 가이드, renderer crash recovery
 - GitHub Actions CI (빌드 + 테스트 + 린트 자동화)
 - ProGuard/R8 난독화 대응
+- EncryptedSharedPreferences를 활용한 보안 토큰 저장
+- 이미지 다운샘플링 + JPEG 압축 (카메라/갤러리)
+- Google Play In-App Update API 연동
+- Kakao SDK 네이티브 로그인 (앱 전환 + 웹 폴백)
 
 ### 의도적으로 생략한 것
 

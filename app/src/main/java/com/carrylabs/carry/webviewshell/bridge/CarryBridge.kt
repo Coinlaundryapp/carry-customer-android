@@ -16,6 +16,8 @@ import android.widget.Toast
 import com.carrylabs.carry.webviewshell.BuildConfig
 import com.carrylabs.carry.webviewshell.fcm.PushTokenManager
 import com.carrylabs.carry.webviewshell.util.DeviceInfo
+import com.carrylabs.carry.webviewshell.util.NetworkUtils
+import com.carrylabs.carry.webviewshell.util.SecureTokenManager
 import org.json.JSONObject
 import java.util.UUID
 
@@ -48,6 +50,7 @@ class CarryBridge(
         const val REQUEST_NOTIFICATION_PERMISSION = "requestNotificationPermission"
         const val OPEN_EXTERNAL_BROWSER = "openExternalBrowser"
         const val CLOSE_APP = "closeApp"
+        const val CHECK_APP_UPDATE = "checkAppUpdate"
     }
 
     // ── Synchronous methods ──────────────────────────────────────────
@@ -132,6 +135,30 @@ class CarryBridge(
         clipboard.setPrimaryClip(clip)
     }
 
+    /** 현재 네트워크 상태를 JSON 문자열로 반환한다 ({isConnected, type, isMetered}). */
+    @JavascriptInterface
+    fun getNetworkStatus(): String {
+        return NetworkUtils(context).getNetworkStatus().toString()
+    }
+
+    /** 보안 저장소에 토큰을 저장한다 (EncryptedSharedPreferences). */
+    @JavascriptInterface
+    fun saveSecureToken(key: String, value: String) {
+        SecureTokenManager.saveToken(context, key, value)
+    }
+
+    /** 보안 저장소에서 토큰을 읽는다. 없으면 빈 문자열. */
+    @JavascriptInterface
+    fun getSecureToken(key: String): String {
+        return SecureTokenManager.getToken(context, key)
+    }
+
+    /** 보안 저장소에서 토큰을 제거한다. */
+    @JavascriptInterface
+    fun removeSecureToken(key: String) {
+        SecureTokenManager.removeToken(context, key)
+    }
+
     /**
      * 클립보드 텍스트를 읽는다.
      * Android 10+ 에서는 포그라운드 앱만 접근 가능하며, 실패 시 빈 문자열을 반환한다.
@@ -171,11 +198,31 @@ class CarryBridge(
     @JavascriptInterface
     fun requestCamera(): String = dispatchAsync(REQUEST_CAMERA)
 
+    /** 카메라를 열어 사진을 촬영한다 (이미지 압축 옵션 지정). */
+    @JavascriptInterface
+    fun requestCamera(maxWidth: Int, maxHeight: Int, quality: Int): String {
+        return dispatchAsync(REQUEST_CAMERA, JSONObject().apply {
+            put("maxWidth", maxWidth)
+            put("maxHeight", maxHeight)
+            put("quality", quality)
+        })
+    }
+
     /** 갤러리를 열어 이미지를 선택한다. */
     @JavascriptInterface
     fun openGallery(): String = dispatchAsync(OPEN_GALLERY)
 
-    /** 카카오 OAuth 로그인을 시작한다. Chrome Custom Tab으로 인증 페이지를 연다. */
+    /** 갤러리를 열어 이미지를 선택한다 (이미지 압축 옵션 지정). */
+    @JavascriptInterface
+    fun openGallery(maxWidth: Int, maxHeight: Int, quality: Int): String {
+        return dispatchAsync(OPEN_GALLERY, JSONObject().apply {
+            put("maxWidth", maxWidth)
+            put("maxHeight", maxHeight)
+            put("quality", quality)
+        })
+    }
+
+    /** 카카오 OAuth 로그인을 시작한다. Kakao SDK를 사용하여 인증한다. */
     @JavascriptInterface
     fun requestLogin(): String = dispatchAsync(REQUEST_LOGIN)
 
@@ -188,6 +235,10 @@ class CarryBridge(
     fun openExternalBrowser(url: String): String {
         return dispatchAsync(OPEN_EXTERNAL_BROWSER, JSONObject().put("url", url))
     }
+
+    /** 앱 업데이트 가능 여부를 확인한다. 결과: {available, storeVersion}. */
+    @JavascriptInterface
+    fun checkAppUpdate(): String = dispatchAsync(CHECK_APP_UPDATE)
 
     /** 앱을 종료한다. */
     @JavascriptInterface

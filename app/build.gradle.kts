@@ -91,6 +91,9 @@ dependencies {
     implementation(libs.androidx.browser)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.security.crypto)
+    implementation(libs.play.app.update.ktx)
+    implementation(libs.kakao.sdk.user)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)

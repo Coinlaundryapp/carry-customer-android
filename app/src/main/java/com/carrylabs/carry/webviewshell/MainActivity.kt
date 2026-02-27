@@ -28,6 +28,7 @@ import com.carrylabs.carry.webviewshell.permission.PermissionHandler
 import com.carrylabs.carry.webviewshell.ui.ErrorView
 import com.carrylabs.carry.webviewshell.ui.SplashLoadingView
 import com.carrylabs.carry.webviewshell.util.BiometricHelper
+import com.carrylabs.carry.webviewshell.util.InAppUpdateManager
 import com.carrylabs.carry.webviewshell.util.NetworkUtils
 import com.carrylabs.carry.webviewshell.webview.CarryWebChromeClient
 import com.carrylabs.carry.webviewshell.webview.CarryWebViewClient
@@ -49,6 +50,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
     private lateinit var permissionHandler: PermissionHandler
 
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
+    private lateinit var inAppUpdateManager: InAppUpdateManager
 
     // ── Handlers (Activity 프로퍼티로 생성 — registerForActivityResult 보장) ──
 
@@ -71,6 +73,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
         locationHandler = LocationRequestHandler(this, permissionHandler)
         loginHandler = LoginRequestHandler(this)
         networkUtils = NetworkUtils(this)
+        inAppUpdateManager = InAppUpdateManager(this)
 
         setupWebView()
         setupSplash()
@@ -80,6 +83,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
         setupNetworkListener()
 
         requestNotificationPermissionOnStartup()
+        checkForAppUpdate()
 
         if (savedInstanceState == null) {
             handleIntent(intent)
@@ -204,9 +208,9 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
     // ── Network Listener ─────────────────────────────────────────────
 
     private fun setupNetworkListener() {
-        networkCallback = networkUtils.registerNetworkCallback { isConnected ->
+        networkCallback = networkUtils.registerNetworkCallback { status ->
             runOnUiThread {
-                dispatchNativeEvent("connectivityChanged", """{"isConnected":$isConnected}""")
+                dispatchNativeEvent("connectivityChanged", status.toString())
             }
         }
     }
@@ -225,15 +229,6 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
 
         val data = intent.data
         if (data != null) {
-            if (data.scheme == LoginRequestHandler.KAKAO_REDIRECT_SCHEME
-                && data.host == LoginRequestHandler.KAKAO_REDIRECT_HOST
-                && data.path == LoginRequestHandler.KAKAO_REDIRECT_PATH
-            ) {
-                data.getQueryParameter("code")?.let {
-                    loginHandler.handleKakaoLoginResult(it, dispatcher)
-                    return
-                }
-            }
             val url = resolveDeepLink(data)
             binding.webView.loadUrl(url)
             dispatchNativeEvent("deepLink", JSONObject().put("url", url).toString())
@@ -273,14 +268,52 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
             when (method) {
                 CarryBridge.REQUEST_BIOMETRIC -> biometricHandler.handle(requestId, args, dispatcher)
                 CarryBridge.REQUEST_LOCATION -> locationHandler.handle(requestId, dispatcher)
-                CarryBridge.REQUEST_CAMERA -> mediaHandler.handleCamera(requestId)
-                CarryBridge.OPEN_GALLERY -> mediaHandler.handleGallery(requestId)
+                CarryBridge.REQUEST_CAMERA -> {
+                    applyCompressionOptions(args)
+                    mediaHandler.handleCamera(requestId)
+                }
+                CarryBridge.OPEN_GALLERY -> {
+                    applyCompressionOptions(args)
+                    mediaHandler.handleGallery(requestId)
+                }
                 CarryBridge.REQUEST_LOGIN -> loginHandler.handle(requestId, dispatcher)
                 CarryBridge.REQUEST_NOTIFICATION_PERMISSION -> handleNotificationPermission(requestId)
+                CarryBridge.CHECK_APP_UPDATE -> handleCheckAppUpdate(requestId)
                 CarryBridge.OPEN_EXTERNAL_BROWSER -> handleOpenExternalBrowser(requestId, args)
                 CarryBridge.CLOSE_APP -> handleCloseApp(requestId)
             }
         }
+    }
+
+    // ── In-App Update ─────────────────────────────────────────────────
+
+    private fun checkForAppUpdate() {
+        lifecycleScope.launch {
+            val info = inAppUpdateManager.checkForUpdate()
+            if (info != null) {
+                val data = JSONObject().apply {
+                    put("available", true)
+                    put("storeVersion", info.availableVersionCode())
+                }
+                dispatchNativeEvent("appUpdateAvailable", data.toString())
+            }
+        }
+    }
+
+    private suspend fun handleCheckAppUpdate(requestId: String) {
+        val info = inAppUpdateManager.checkForUpdate()
+        val data = JSONObject().apply {
+            put("available", info != null)
+            put("storeVersion", info?.availableVersionCode() ?: 0)
+        }
+        dispatcher.sendCallback(BridgeResult(requestId, true, data))
+    }
+
+    private fun applyCompressionOptions(args: JSONObject) {
+        val maxWidth = args.optInt("maxWidth", MediaRequestHandler.DEFAULT_MAX_WIDTH)
+        val maxHeight = args.optInt("maxHeight", MediaRequestHandler.DEFAULT_MAX_HEIGHT)
+        val quality = args.optInt("quality", MediaRequestHandler.DEFAULT_QUALITY)
+        mediaHandler.setCompressionOptions(maxWidth, maxHeight, quality)
     }
 
     // ── Simple handlers (추출 불필요) ────────────────────────────────

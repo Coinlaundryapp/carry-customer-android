@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import org.json.JSONObject
 
 class NetworkUtils(private val context: Context) {
 
@@ -17,14 +18,45 @@ class NetworkUtils(private val context: Context) {
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    fun registerNetworkCallback(onChanged: (Boolean) -> Unit): ConnectivityManager.NetworkCallback {
+    fun getNetworkStatus(): JSONObject {
+        val network = connectivityManager.activeNetwork
+        val caps = network?.let { connectivityManager.getNetworkCapabilities(it) }
+
+        val isConnected = caps?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ?: false
+        val type = when {
+            caps == null -> "none"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> "wifi"
+            caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> "cellular"
+            else -> "none"
+        }
+        val isMetered = connectivityManager.isActiveNetworkMetered
+
+        return JSONObject().apply {
+            put("isConnected", isConnected)
+            put("type", type)
+            put("isMetered", isMetered)
+        }
+    }
+
+    fun registerNetworkCallback(onChanged: (JSONObject) -> Unit): ConnectivityManager.NetworkCallback {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
-                onChanged(true)
+                onChanged(getNetworkStatus())
             }
 
             override fun onLost(network: Network) {
-                onChanged(false)
+                onChanged(JSONObject().apply {
+                    put("isConnected", false)
+                    put("type", "none")
+                    put("isMetered", false)
+                })
+            }
+
+            override fun onCapabilitiesChanged(
+                network: Network,
+                networkCapabilities: NetworkCapabilities
+            ) {
+                onChanged(getNetworkStatus())
             }
         }
         val request = NetworkRequest.Builder()

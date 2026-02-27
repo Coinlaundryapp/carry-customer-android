@@ -27,3 +27,11 @@
 
 # Firebase
 -keep class com.google.firebase.** { *; }
+
+# Kakao SDK
+-keep class com.kakao.sdk.** { *; }
+-keep class com.kakao.util.** { *; }
+-dontwarn com.kakao.sdk.**
+
+# Google Play In-App Update
+-keep class com.google.android.play.core.** { *; }

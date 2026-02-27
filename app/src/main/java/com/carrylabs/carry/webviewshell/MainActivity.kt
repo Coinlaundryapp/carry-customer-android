@@ -204,7 +204,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
         val deepLink = intent.getStringExtra("deepLink")
         if (deepLink != null) {
             binding.webView.loadUrl(deepLink)
-            dispatchNativeEvent("deepLink", """{"url":"$deepLink"}""")
+            dispatchNativeEvent("deepLink", JSONObject().put("url", deepLink).toString())
             return
         }
 
@@ -218,7 +218,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
             }
             val url = resolveDeepLink(data)
             binding.webView.loadUrl(url)
-            dispatchNativeEvent("deepLink", """{"url":"$url"}""")
+            dispatchNativeEvent("deepLink", JSONObject().put("url", url).toString())
             return
         }
 
@@ -227,7 +227,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
 
     private fun resolveDeepLink(uri: Uri): String {
         if (uri.scheme == "carry") return BuildConfig.BASE_URL + (uri.path ?: "")
-        return BuildConfig.BASE_URL + (uri.path ?: "")
+        return uri.toString()
     }
 
     private fun loadBaseUrl() {

@@ -10,13 +10,18 @@ import java.util.Locale
 
 object FileProviderHelper {
 
-    fun createImageUri(context: Context): Uri {
+    fun createImageUri(context: Context): Uri? {
+        val cacheDir = context.externalCacheDir ?: return null
         val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
-        val imageFile = File(context.externalCacheDir, "IMG_${timeStamp}.jpg")
-        return FileProvider.getUriForFile(
-            context,
-            "${context.packageName}.fileprovider",
-            imageFile
-        )
+        val imageFile = File(cacheDir, "IMG_${timeStamp}.jpg")
+        return try {
+            FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                imageFile
+            )
+        } catch (_: Exception) {
+            null
+        }
     }
 }

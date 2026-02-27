@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -74,7 +75,7 @@ class CarryBridgeTest {
     @Test
     fun `showToast does not throw`() {
         bridge.showToast("test message")
-        // Verify toast was shown via Robolectric shadow
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
         val latestToast = org.robolectric.shadows.ShadowToast.getTextOfLatestToast()
         assertEquals("test message", latestToast)
     }

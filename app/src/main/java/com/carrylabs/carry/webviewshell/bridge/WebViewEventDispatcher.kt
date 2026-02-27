@@ -11,20 +11,18 @@ interface WebViewEventDispatcher {
 
 /**
  * WebViewEventDispatcher 등록소. Activity가 onCreate/onDestroy에서 등록/해제한다.
+ * FCM 서비스 등 백그라운드 스레드에서 get()을 호출하므로 AtomicReference로 보호한다.
  */
 object WebViewEventDispatcherRegistry {
-    @Volatile
-    private var dispatcher: WebViewEventDispatcher? = null
+    private val ref = java.util.concurrent.atomic.AtomicReference<WebViewEventDispatcher?>(null)
 
     fun register(dispatcher: WebViewEventDispatcher) {
-        this.dispatcher = dispatcher
+        ref.set(dispatcher)
     }
 
     fun unregister(dispatcher: WebViewEventDispatcher) {
-        if (this.dispatcher === dispatcher) {
-            this.dispatcher = null
-        }
+        ref.compareAndSet(dispatcher, null)
     }
 
-    fun get(): WebViewEventDispatcher? = dispatcher
+    fun get(): WebViewEventDispatcher? = ref.get()
 }

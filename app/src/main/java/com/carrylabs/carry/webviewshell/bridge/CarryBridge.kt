@@ -5,6 +5,8 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
@@ -19,6 +21,8 @@ class CarryBridge(
     private val context: Context,
     private val onAsyncRequest: (method: String, requestId: String, args: JSONObject) -> Unit
 ) {
+
+    private val mainHandler = Handler(Looper.getMainLooper())
 
     /**
      * 브릿지 메서드명 상수. CarryBridge와 MainActivity 라우터가 공유하여 오타를 방지한다.
@@ -50,27 +54,31 @@ class CarryBridge(
 
     @JavascriptInterface
     fun showToast(message: String) {
-        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        mainHandler.post {
+            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        }
     }
 
     @JavascriptInterface
     fun hapticFeedback(type: String) {
-        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-            manager.defaultVibrator
-        } else {
-            @Suppress("DEPRECATION")
-            context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-        }
+        mainHandler.post {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
+                manager.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            }
 
-        val duration = when (type) {
-            "light" -> 10L
-            "medium" -> 30L
-            "heavy" -> 60L
-            else -> 20L
-        }
+            val duration = when (type) {
+                "light" -> 10L
+                "medium" -> 30L
+                "heavy" -> 60L
+                else -> 20L
+            }
 
-        vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, VibrationEffect.DEFAULT_AMPLITUDE))
+        }
     }
 
     @JavascriptInterface

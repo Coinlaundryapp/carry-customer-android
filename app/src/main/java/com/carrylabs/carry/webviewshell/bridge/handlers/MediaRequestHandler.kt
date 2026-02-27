@@ -80,9 +80,16 @@ class MediaRequestHandler(
     }
 
     private fun launchCamera(requestId: String) {
+        val uri = FileProviderHelper.createImageUri(activity)
+        if (uri == null) {
+            dispatcher?.sendCallback(
+                BridgeResult(requestId, false, error = "Failed to create image file")
+            )
+            return
+        }
         pendingRequestId = requestId
-        cameraImageUri = FileProviderHelper.createImageUri(activity)
-        cameraLauncher.launch(cameraImageUri!!)
+        cameraImageUri = uri
+        cameraLauncher.launch(uri)
     }
 
     private fun handleCameraResult(success: Boolean) {

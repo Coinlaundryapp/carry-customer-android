@@ -11,6 +11,7 @@ import com.carrylabs.carry.webviewshell.R
 import com.carrylabs.carry.webviewshell.bridge.WebViewEventDispatcherRegistry
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import org.json.JSONObject
 
 class CarryFirebaseMessagingService : FirebaseMessagingService() {
 
@@ -19,7 +20,7 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
         PushTokenManager.saveToken(this, token)
         WebViewEventDispatcherRegistry.get()?.dispatchNativeEvent(
             "pushTokenRefreshed",
-            """{"token":"$token"}"""
+            JSONObject().put("token", token).toString()
         )
     }
 

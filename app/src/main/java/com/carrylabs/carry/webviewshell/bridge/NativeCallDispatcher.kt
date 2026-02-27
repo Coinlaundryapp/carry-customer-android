@@ -3,82 +3,100 @@ package com.carrylabs.carry.webviewshell.bridge
 import android.os.Handler
 import android.os.Looper
 import android.webkit.WebView
+import org.json.JSONObject
 
 class NativeCallDispatcher(private val webView: WebView) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
 
     fun sendCallback(result: BridgeResult) {
-        val js = "javascript:window.CarryBridge && window.CarryBridge.__onNativeCallback && " +
-                "window.CarryBridge.__onNativeCallback(${result.toJson()})"
-        evaluateOnMainThread(js)
+        val safeJson = result.toJson() // JSONObject.toString() — 안전
+        callJsFunction(
+            "window.CarryBridge && window.CarryBridge.__onNativeCallback",
+            "window.CarryBridge.__onNativeCallback($safeJson)"
+        )
     }
 
     fun sendEvent(eventName: String, dataJson: String) {
-        val js = "javascript:window.CarryBridge && window.CarryBridge.__onNativeEvent && " +
-                "window.CarryBridge.__onNativeEvent('$eventName', $dataJson)"
-        evaluateOnMainThread(js)
+        val safeName = JSONObject.quote(eventName) // "eventName" (따옴표 포함)
+        val safeData = ensureValidJson(dataJson)
+        callJsFunction(
+            "window.CarryBridge && window.CarryBridge.__onNativeEvent",
+            "window.CarryBridge.__onNativeEvent($safeName, $safeData)"
+        )
     }
 
     // ── 명세서 콜백 ────────────────────────────────────────────────
 
     fun dispatchLoginComplete(token: String) {
-        val escaped = token.replace("\\", "\\\\").replace("'", "\\'")
-        val js = "javascript:typeof window.onLoginComplete === 'function' && window.onLoginComplete('$escaped')"
-        evaluateOnMainThread(js)
+        val safeToken = JSONObject.quote(token) // "token" (따옴표 포함)
+        callJsFunctionIfExists("window.onLoginComplete", "window.onLoginComplete($safeToken)")
     }
 
-    /**
-     * Returns true if `window.onNativeBackPressed` exists and was invoked.
-     * The caller should check the JS-side existence first via [checkAndDispatchBackPressed].
-     */
     fun dispatchNativeBackPressed() {
-        val js = "javascript:typeof window.onNativeBackPressed === 'function' && window.onNativeBackPressed()"
-        evaluateOnMainThread(js)
+        callJsFunctionIfExists("window.onNativeBackPressed", "window.onNativeBackPressed()")
     }
 
-    /**
-     * Evaluates whether `window.onNativeBackPressed` exists, then invokes callback with the result.
-     */
     fun checkAndDispatchBackPressed(onResult: (Boolean) -> Unit) {
         val checkJs = "typeof window.onNativeBackPressed === 'function'"
-        if (Looper.myLooper() == Looper.getMainLooper()) {
-            webView.evaluateJavascript(checkJs) { result ->
-                val exists = result?.trim() == "true"
-                if (exists) {
-                    dispatchNativeBackPressed()
-                }
-                onResult(exists)
+        evaluateOnMainThread(checkJs) { result ->
+            val exists = result?.trim() == "true"
+            if (exists) {
+                dispatchNativeBackPressed()
             }
-        } else {
-            mainHandler.post {
-                webView.evaluateJavascript(checkJs) { result ->
-                    val exists = result?.trim() == "true"
-                    if (exists) {
-                        dispatchNativeBackPressed()
-                    }
-                    onResult(exists)
-                }
-            }
+            onResult(exists)
         }
     }
 
     fun dispatchPushNotification(dataJson: String) {
-        val js = "javascript:typeof window.onPushNotification === 'function' && window.onPushNotification($dataJson)"
-        evaluateOnMainThread(js)
+        val safeData = ensureValidJson(dataJson)
+        callJsFunctionIfExists("window.onPushNotification", "window.onPushNotification($safeData)")
     }
 
     fun dispatchAppResume() {
-        val js = "javascript:typeof window.onAppResume === 'function' && window.onAppResume()"
-        evaluateOnMainThread(js)
+        callJsFunctionIfExists("window.onAppResume", "window.onAppResume()")
     }
 
-    private fun evaluateOnMainThread(js: String) {
+    // ── Private helpers ──────────────────────────────────────────────
+
+    /**
+     * guard && call 패턴으로 JS 함수를 호출한다.
+     */
+    private fun callJsFunction(guard: String, call: String) {
+        evaluateOnMainThread("$guard && $call", null)
+    }
+
+    /**
+     * typeof 체크 후 JS 함수를 호출한다.
+     */
+    private fun callJsFunctionIfExists(funcRef: String, call: String) {
+        evaluateOnMainThread("typeof $funcRef === 'function' && $call", null)
+    }
+
+    /**
+     * JSON 문자열을 파싱하여 유효성을 검증한다.
+     * 유효하지 않으면 빈 객체를 반환한다.
+     */
+    private fun ensureValidJson(dataJson: String): String {
+        return try {
+            // JSONObject로 파싱 → toString()으로 안전하게 재직렬화
+            JSONObject(dataJson).toString()
+        } catch (_: Exception) {
+            try {
+                // JSONArray일 수 있음
+                org.json.JSONArray(dataJson).toString()
+            } catch (_: Exception) {
+                "{}"
+            }
+        }
+    }
+
+    private fun evaluateOnMainThread(js: String, callback: ((String?) -> Unit)?) {
         if (Looper.myLooper() == Looper.getMainLooper()) {
-            webView.evaluateJavascript(js, null)
+            webView.evaluateJavascript(js, callback)
         } else {
             mainHandler.post {
-                webView.evaluateJavascript(js, null)
+                webView.evaluateJavascript(js, callback)
             }
         }
     }

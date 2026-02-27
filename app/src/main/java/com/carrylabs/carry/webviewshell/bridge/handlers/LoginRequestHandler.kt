@@ -32,13 +32,14 @@ class LoginRequestHandler(
         }
         pendingRequestId = requestId
 
-        val oauthUrl = "$KAKAO_AUTH_URL" +
-                "?client_id=$kakaoClientId" +
-                "&redirect_uri=$KAKAO_REDIRECT_URI" +
-                "&response_type=code"
+        val oauthUri = Uri.parse(KAKAO_AUTH_URL).buildUpon()
+            .appendQueryParameter("client_id", kakaoClientId)
+            .appendQueryParameter("redirect_uri", KAKAO_REDIRECT_URI)
+            .appendQueryParameter("response_type", "code")
+            .build()
 
         val customTabsIntent = CustomTabsIntent.Builder().build()
-        customTabsIntent.launchUrl(activity, Uri.parse(oauthUrl))
+        customTabsIntent.launchUrl(activity, oauthUri)
     }
 
     fun handleKakaoLoginResult(code: String, dispatcher: NativeCallDispatcher) {

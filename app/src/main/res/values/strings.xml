@@ -19,4 +19,8 @@
     <string name="notification_channel_id">carry_default</string>
     <string name="notification_channel_name">General</string>
     <string name="notification_channel_description">General notifications</string>
+
+    <!-- Accessibility -->
+    <string name="a11y_page_loading">Page loading progress</string>
+    <string name="a11y_app_loading">App is loading</string>
 </resources>

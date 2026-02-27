@@ -16,6 +16,9 @@
 -keep interface com.carrylabs.carry.webviewshell.bridge.WebViewEventDispatcher { *; }
 -keep class com.carrylabs.carry.webviewshell.bridge.WebViewEventDispatcherRegistry { *; }
 
+# Keep handler classes (coroutine suspend functions rely on signatures)
+-keep class com.carrylabs.carry.webviewshell.bridge.handlers.** { *; }
+
 # Preserve line number information for debugging stack traces
 -keepattributes SourceFile,LineNumberTable
 

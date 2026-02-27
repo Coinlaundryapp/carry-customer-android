@@ -25,7 +25,8 @@
         android:layout_gravity="top"
         android:indeterminate="false"
         android:max="100"
-        android:visibility="gone" />
+        android:visibility="gone"
+        android:contentDescription="@string/a11y_page_loading" />
 
     <!-- Error view overlay -->
     <include

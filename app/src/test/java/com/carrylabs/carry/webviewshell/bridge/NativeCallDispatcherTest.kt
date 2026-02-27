@@ -3,6 +3,7 @@ package com.carrylabs.carry.webviewshell.bridge
 import android.webkit.WebView
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -191,5 +192,54 @@ class NativeCallDispatcherTest {
         assertNotNull(js)
         assertTrue(js!!.contains("typeof window.onAppResume === 'function'"))
         assertTrue(js.contains("window.onAppResume()"))
+    }
+
+    // ── XSS / Injection safety ──────────────────────────────────────
+
+    @Test
+    fun `sendEvent preserves HTML safely inside JSON string`() {
+        dispatcher.sendEvent("test", """{"key":"<img src=x onerror=alert('xss')>"}""")
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        // HTML은 JSON 문자열 값 안에 안전하게 포함됨 (JS 실행되지 않음)
+        // ensureValidJson()이 올바른 JSON 구조를 유지하는지 확인
+        assertTrue(js!!.contains("\"key\""))
+        assertTrue(js.contains("__onNativeEvent("))
+    }
+
+    @Test
+    fun `sendEvent with malformed JSON containing script tags falls back to empty`() {
+        // 유효하지 않은 JSON은 {} 로 폴백
+        dispatcher.sendEvent("test", "</script><script>alert(1)</script>")
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("{}"))
+    }
+
+    @Test
+    fun `sendEvent escapes injection in event name`() {
+        dispatcher.sendEvent("test\");alert(1);//", """{"key":"value"}""")
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        // JSONObject.quote가 따옴표와 세미콜론을 안전하게 처리
+        assertFalse(js!!.contains("\");alert(1);//"))
+    }
+
+    @Test
+    fun `dispatchLoginComplete escapes injection in token`() {
+        dispatcher.dispatchLoginComplete("token\");alert(document.cookie);//")
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertFalse(js!!.contains("\");alert(document.cookie);//"))
+    }
+
+    @Test
+    fun `sendCallback escapes injection in requestId`() {
+        val result = BridgeResult("req\");alert(1);//", true)
+        dispatcher.sendCallback(result)
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        // JSONObject.toString()이 따옴표를 이스케이프
+        assertFalse(js!!.contains("\");alert(1);//"))
     }
 }

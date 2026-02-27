@@ -11,6 +11,7 @@
         android:id="@+id/splashProgress"
         android:layout_width="48dp"
         android:layout_height="48dp"
-        android:layout_gravity="center" />
+        android:layout_gravity="center"
+        android:contentDescription="@string/a11y_app_loading" />
 
 </FrameLayout>

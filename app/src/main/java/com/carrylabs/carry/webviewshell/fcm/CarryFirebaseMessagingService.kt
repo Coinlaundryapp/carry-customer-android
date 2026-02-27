@@ -43,7 +43,11 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     private fun showNotification(message: RemoteMessage) {
-        val title = message.notification?.title ?: message.data["title"] ?: return
+        val title = message.notification?.title ?: message.data["title"]
+        if (title == null) {
+            Log.w(TAG, "FCM notification dropped: no title provided")
+            return
+        }
         val body = message.notification?.body ?: message.data["body"] ?: ""
         val deepLink = message.data["deepLink"]
 

@@ -2,16 +2,17 @@
 .gradle
 .idea/
 .claude/
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+local.properties
 .DS_Store
 /build
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+
+# Signing
+*.keystore
+*.jks
+
+# Firebase config (may contain API keys)
+app/google-services.json
+app/src/*/google-services.json

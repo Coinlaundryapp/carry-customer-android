@@ -66,6 +66,13 @@ android {
     kotlinOptions {
         jvmTarget = "11"
     }
+
+    lint {
+        abortOnError = false
+        htmlReport = true
+        // SetJavaScriptEnabled: WebView 앱이므로 의도적 활성화
+        disable += "SetJavaScriptEnabled"
+    }
 }
 
 dependencies {

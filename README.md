@@ -180,3 +180,32 @@ WebView에서 발생하는 외부 URL 스킴을 처리한다:
 
 - **`KAKAO_CLIENT_ID`**: 각 flavor의 `build.gradle.kts`에 카카오 OAuth 클라이언트 ID 설정
 - **`google-services.json`**: 각 flavor 디렉토리(`app/src/dev/`, `app/src/staging/`, `app/src/prod/`)에 Firebase 설정 파일 배치
+
+## 프로젝트 범위와 의도적 생략 사항
+
+이 프로젝트는 **WebView 기반 컨테이너 앱의 실용적인 레퍼런스**를 목표로 합니다. 경량 WebView Shell이라는 성격에 맞춰 의도적으로 생략한 항목들이 있으며, 프로덕션 앱에서는 요구 사항에 따라 추가를 검토해야 합니다.
+
+### 이 프로젝트가 다루는 것
+
+- JavaScript Bridge 설계 패턴 (동기/비동기 분리, requestId 기반 콜백)
+- JSON injection 방어 및 XSS 안전한 JS 호출
+- Kotlin Coroutines를 활용한 비동기 처리 (콜백 → suspend 전환 패턴)
+- 런타임 권한 요청 큐 (동시 요청 직렬화)
+- 결제 앱 스킴 / intent:// URL 처리
+- Safe Browsing API, SSL pinning 가이드, renderer crash recovery
+- GitHub Actions CI (빌드 + 테스트 + 린트 자동화)
+- ProGuard/R8 난독화 대응
+
+### 의도적으로 생략한 것
+
+| 항목 | 생략 사유 |
+|---|---|
+| **ViewModel / StateFlow** | WebView가 자체적으로 상태를 관리하며, `android:configChanges`로 configuration change를 처리하므로 ViewModel의 이점이 제한적. 네이티브 UI 비중이 큰 앱에서는 도입 권장 |
+| **DI 프레임워크 (Hilt/Koin)** | 의존성이 소수이고 Activity에서 직접 생성해도 충분한 규모. 핸들러가 10개 이상이거나 테스트에서 mock 주입이 필요하면 도입 권장 |
+| **Firebase Crashlytics** | 크래시 리포팅은 프로덕션 필수이지만, 이 레퍼런스에서는 Firebase 의존성을 FCM으로 한정. 실제 배포 시 반드시 추가 |
+| **UI 테스트 (Espresso)** | WebView 컨텐츠는 웹 팀이 테스트하고, 네이티브 셸은 유닛 테스트로 커버. 딥링크 라우팅 등 통합 테스트는 규모에 따라 추가 |
+| **테스트 커버리지 측정 (JaCoCo)** | CI에 커버리지 리포트를 추가하면 품질 게이트로 활용 가능. 현재는 테스트 유무보다 핵심 경로 검증에 집중 |
+| **전역 에러 핸들링** | `CoroutineExceptionHandler`, `UncaughtExceptionHandler` 등 상위 수준 에러 경계는 Crashlytics와 함께 도입하는 것이 효과적 |
+| **구조화 로깅 / 분석** | 브릿지 호출 빈도, 에러율 등을 추적하려면 Analytics SDK 연동 필요. 레퍼런스에서는 `Log.d/w/e`로 단순화 |
+| **오프라인 지원** | `shouldInterceptRequest`로 오프라인 페이지를 제공할 수 있으나, 서비스 성격에 따라 다르므로 생략 |
+| **다국어 (i18n)** | 에러 메시지 등이 영어 단일 언어. 프로덕션에서는 `strings.xml` 다국어 파일 추가 |

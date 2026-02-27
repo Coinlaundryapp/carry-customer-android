@@ -12,6 +12,14 @@ class LoginRequestHandler(
     private val activity: AppCompatActivity
 ) {
 
+    companion object {
+        const val KAKAO_AUTH_URL = "https://kauth.kakao.com/oauth/authorize"
+        const val KAKAO_REDIRECT_URI = "carry://oauth/kakao"
+        const val KAKAO_REDIRECT_SCHEME = "carry"
+        const val KAKAO_REDIRECT_HOST = "oauth"
+        const val KAKAO_REDIRECT_PATH = "/kakao"
+    }
+
     private var pendingRequestId: String? = null
 
     fun handle(requestId: String, dispatcher: NativeCallDispatcher) {
@@ -24,9 +32,9 @@ class LoginRequestHandler(
         }
         pendingRequestId = requestId
 
-        val oauthUrl = "https://kauth.kakao.com/oauth/authorize" +
+        val oauthUrl = "$KAKAO_AUTH_URL" +
                 "?client_id=$kakaoClientId" +
-                "&redirect_uri=carry://oauth/kakao" +
+                "&redirect_uri=$KAKAO_REDIRECT_URI" +
                 "&response_type=code"
 
         val customTabsIntent = CustomTabsIntent.Builder().build()

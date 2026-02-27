@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import java.util.concurrent.atomic.AtomicInteger
 import androidx.core.app.NotificationCompat
 import com.carrylabs.carry.webviewshell.MainActivity
 import com.carrylabs.carry.webviewshell.R
@@ -70,10 +71,11 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
 
         val notificationManager =
             getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(System.currentTimeMillis().toInt(), notification)
+        notificationManager.notify(notificationIdCounter.incrementAndGet(), notification)
     }
 
     companion object {
         private const val TAG = "CarryFCM"
+        private val notificationIdCounter = AtomicInteger(0)
     }
 }

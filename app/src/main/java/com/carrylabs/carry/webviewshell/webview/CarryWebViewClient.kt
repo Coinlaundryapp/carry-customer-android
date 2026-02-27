@@ -26,6 +26,10 @@ class CarryWebViewClient(
 
     private companion object {
         private const val TAG = "CarryWebViewClient"
+        private const val SCHEME_INTENT_PREFIX = "intent://"
+        private const val KEY_BROWSER_FALLBACK_URL = "browser_fallback_url"
+        private const val MARKET_DETAILS_PREFIX = "market://details?id="
+        private const val MARKET_SEARCH_PREFIX = "market://search?q="
     }
 
     private var hasError = false
@@ -34,7 +38,7 @@ class CarryWebViewClient(
         val url = request.url.toString()
 
         // Handle intent:// scheme
-        if (url.startsWith("intent://")) {
+        if (url.startsWith(SCHEME_INTENT_PREFIX)) {
             return handleIntentScheme(view, url)
         }
 
@@ -78,7 +82,7 @@ class CarryWebViewClient(
             }
 
             // Try browser_fallback_url
-            val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+            val fallbackUrl = intent.getStringExtra(KEY_BROWSER_FALLBACK_URL)
             if (!fallbackUrl.isNullOrEmpty()) {
                 view.loadUrl(fallbackUrl)
                 return true
@@ -90,7 +94,7 @@ class CarryWebViewClient(
                 try {
                     val marketIntent = Intent(
                         Intent.ACTION_VIEW,
-                        Uri.parse("market://details?id=$packageName")
+                        Uri.parse("${MARKET_DETAILS_PREFIX}$packageName")
                     )
                     view.context.startActivity(marketIntent)
                 } catch (e: ActivityNotFoundException) {
@@ -116,7 +120,7 @@ class CarryWebViewClient(
                 try {
                     val marketIntent = Intent(
                         Intent.ACTION_VIEW,
-                        Uri.parse("market://search?q=$scheme")
+                        Uri.parse("${MARKET_SEARCH_PREFIX}$scheme")
                     )
                     view.context.startActivity(marketIntent)
                 } catch (_: Exception) {

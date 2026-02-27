@@ -212,7 +212,10 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
 
         val data = intent.data
         if (data != null) {
-            if (data.scheme == "carry" && data.host == "oauth" && data.path == "/kakao") {
+            if (data.scheme == LoginRequestHandler.KAKAO_REDIRECT_SCHEME
+                && data.host == LoginRequestHandler.KAKAO_REDIRECT_HOST
+                && data.path == LoginRequestHandler.KAKAO_REDIRECT_PATH
+            ) {
                 data.getQueryParameter("code")?.let {
                     loginHandler.handleKakaoLoginResult(it, dispatcher)
                     return

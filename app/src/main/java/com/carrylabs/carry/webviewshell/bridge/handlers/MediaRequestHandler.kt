@@ -108,6 +108,8 @@ class MediaRequestHandler(
     // ── Bridge: Gallery ──────────────────────────────────────────────
 
     fun handleGallery(requestId: String) {
+        fileUploadCallback?.onReceiveValue(null)
+        fileUploadCallback = null
         pendingRequestId = requestId
         isGalleryPick = true
         contentPickerLauncher.launch("image/*")

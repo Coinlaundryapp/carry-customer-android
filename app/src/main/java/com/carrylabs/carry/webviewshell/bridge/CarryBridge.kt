@@ -16,6 +16,7 @@ import com.carrylabs.carry.webviewshell.BuildConfig
 import com.carrylabs.carry.webviewshell.fcm.PushTokenManager
 import com.carrylabs.carry.webviewshell.util.DeviceInfo
 import org.json.JSONObject
+import java.util.UUID
 
 class CarryBridge(
     private val context: Context,
@@ -27,7 +28,7 @@ class CarryBridge(
     /**
      * 브릿지 메서드명 상수. CarryBridge와 MainActivity 라우터가 공유하여 오타를 방지한다.
      */
-    companion object Methods {
+    companion object {
         const val REQUEST_BIOMETRIC = "requestBiometric"
         const val REQUEST_LOCATION = "requestLocation"
         const val REQUEST_CAMERA = "requestCamera"
@@ -50,7 +51,7 @@ class CarryBridge(
     fun getPushToken(): String = PushTokenManager.getToken(context)
 
     @JavascriptInterface
-    fun getFCMToken(): String = PushTokenManager.getToken(context)
+    fun getFCMToken(): String = getPushToken()
 
     @JavascriptInterface
     fun showToast(message: String) {
@@ -154,7 +155,7 @@ class CarryBridge(
     // ── Helper ───────────────────────────────────────────────────────
 
     private fun dispatchAsync(method: String, args: JSONObject = JSONObject()): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
+        val requestId = UUID.randomUUID().toString()
         onAsyncRequest(method, requestId, args)
         return requestId
     }

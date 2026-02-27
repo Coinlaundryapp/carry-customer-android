@@ -19,17 +19,17 @@ class NativeCallDispatcherTest {
 
     private lateinit var webView: WebView
     private lateinit var dispatcher: NativeCallDispatcher
-    private val evaluatedJs = mutableListOf<String>()
 
     @Before
     fun setup() {
         val context = RuntimeEnvironment.getApplication()
         webView = WebView(context)
-
-        // Shadow을 통해 evaluateJavascript 호출을 캡처
-        val shadowWebView = Shadows.shadowOf(webView)
-
         dispatcher = NativeCallDispatcher(webView)
+    }
+
+    private fun flushAndGetLastJs(): String? {
+        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        return Shadows.shadowOf(webView).lastEvaluatedJavascript
     }
 
     // ── BridgeResult JSON safety ──────────────────────────────────
@@ -59,32 +59,53 @@ class NativeCallDispatcherTest {
         assertEquals("error with \"quotes\" and \\ backslash", json.getString("error"))
     }
 
-    // ── ensureValidJson (tested indirectly via sendEvent) ─────────
+    // ── sendEvent JS content verification ─────────────────────────
 
     @Test
-    fun `sendEvent with valid JSON object does not throw`() {
-        dispatcher.sendEvent("test", """{"key":"value"}""")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
-        // No exception means the JSON was accepted
+    fun `sendEvent generates correct JS with guard pattern`() {
+        dispatcher.sendEvent("testEvent", """{"key":"value"}""")
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("window.CarryBridge && window.CarryBridge.__onNativeEvent"))
+        assertTrue(js.contains("__onNativeEvent("))
+        assertTrue(js.contains("\"testEvent\""))
+    }
+
+    @Test
+    fun `sendEvent with invalid JSON falls back to empty object`() {
+        dispatcher.sendEvent("test", "not valid json {{{")
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("{}"))
     }
 
     @Test
     fun `sendEvent with valid JSON array does not throw`() {
         dispatcher.sendEvent("test", """[1,2,3]""")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
-    }
-
-    @Test
-    fun `sendEvent with invalid JSON falls back to empty object`() {
-        // This should not throw — invalid JSON is replaced with {}
-        dispatcher.sendEvent("test", "not valid json {{{")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("[1,2,3]"))
     }
 
     @Test
     fun `sendEvent with empty string falls back to empty object`() {
         dispatcher.sendEvent("test", "")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("{}"))
+    }
+
+    // ── sendCallback JS content verification ──────────────────────
+
+    @Test
+    fun `sendCallback generates correct JS with guard pattern`() {
+        val result = BridgeResult("req-1", true, JSONObject().put("data", "test"))
+        dispatcher.sendCallback(result)
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("window.CarryBridge && window.CarryBridge.__onNativeCallback"))
+        assertTrue(js.contains("\"requestId\""))
+        assertTrue(js.contains("req-1"))
     }
 
     // ── JSONObject quote safety ───────────────────────────────────
@@ -117,48 +138,58 @@ class NativeCallDispatcherTest {
         assertTrue(quoted.contains("한글"))
     }
 
-    // ── Dispatch methods do not throw ─────────────────────────────
+    // ── Dispatch methods JS verification ──────────────────────────
 
     @Test
-    fun `dispatchLoginComplete does not throw`() {
+    fun `dispatchLoginComplete generates typeof check JS`() {
         dispatcher.dispatchLoginComplete("token123")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("typeof window.onLoginComplete === 'function'"))
+        assertTrue(js.contains("window.onLoginComplete("))
+        assertTrue(js.contains("token123"))
     }
 
     @Test
-    fun `dispatchLoginComplete with special chars does not throw`() {
+    fun `dispatchLoginComplete escapes special chars in token`() {
         dispatcher.dispatchLoginComplete("token\"with'special<chars>")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("\\\""))
     }
 
     @Test
-    fun `dispatchNativeBackPressed does not throw`() {
+    fun `dispatchNativeBackPressed generates typeof check JS`() {
         dispatcher.dispatchNativeBackPressed()
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("typeof window.onNativeBackPressed === 'function'"))
+        assertTrue(js.contains("window.onNativeBackPressed()"))
     }
 
     @Test
-    fun `dispatchPushNotification does not throw`() {
+    fun `dispatchPushNotification generates typeof check JS`() {
         dispatcher.dispatchPushNotification("""{"title":"push","body":"test"}""")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("typeof window.onPushNotification === 'function'"))
+        assertTrue(js.contains("window.onPushNotification("))
     }
 
     @Test
-    fun `dispatchPushNotification with invalid JSON does not throw`() {
+    fun `dispatchPushNotification with invalid JSON uses fallback`() {
         dispatcher.dispatchPushNotification("invalid json")
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("{}"))
     }
 
     @Test
-    fun `dispatchAppResume does not throw`() {
+    fun `dispatchAppResume generates typeof check JS`() {
         dispatcher.dispatchAppResume()
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
-    }
-
-    @Test
-    fun `sendCallback does not throw`() {
-        val result = BridgeResult("req-1", true, JSONObject().put("data", "test"))
-        dispatcher.sendCallback(result)
-        Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        val js = flushAndGetLastJs()
+        assertNotNull(js)
+        assertTrue(js!!.contains("typeof window.onAppResume === 'function'"))
+        assertTrue(js.contains("window.onAppResume()"))
     }
 }

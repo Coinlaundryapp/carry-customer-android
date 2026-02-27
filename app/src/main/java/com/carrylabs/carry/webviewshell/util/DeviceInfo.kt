@@ -1,6 +1,7 @@
 package com.carrylabs.carry.webviewshell.util
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import android.provider.Settings
 import org.json.JSONObject
@@ -8,7 +9,17 @@ import org.json.JSONObject
 object DeviceInfo {
 
     fun collect(context: Context): JSONObject {
-        val packageInfo = context.packageManager.getPackageInfo(context.packageName, 0)
+        val packageInfo = runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    context.packageName, PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+        }.getOrNull()
+
         return JSONObject().apply {
             put("platform", "android")
             put("osVersion", Build.VERSION.RELEASE)
@@ -16,8 +27,8 @@ object DeviceInfo {
             put("manufacturer", Build.MANUFACTURER)
             put("model", Build.MODEL)
             put("brand", Build.BRAND)
-            put("appVersion", packageInfo.versionName ?: "unknown")
-            put("appVersionCode", packageInfo.longVersionCode)
+            put("appVersion", packageInfo?.versionName ?: "unknown")
+            put("appVersionCode", packageInfo?.longVersionCode ?: 0L)
             put("packageName", context.packageName)
             put("deviceId", getDeviceId(context))
         }

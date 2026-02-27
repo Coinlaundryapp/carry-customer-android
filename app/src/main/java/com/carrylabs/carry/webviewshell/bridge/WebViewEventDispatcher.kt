@@ -1,5 +1,7 @@
 package com.carrylabs.carry.webviewshell.bridge
 
+import java.util.concurrent.atomic.AtomicReference
+
 /**
  * WebView로 이벤트를 전달하는 인터페이스.
  * FCM 서비스 등 외부 컴포넌트가 MainActivity를 직접 참조하지 않도록 추상화한다.
@@ -14,7 +16,7 @@ interface WebViewEventDispatcher {
  * FCM 서비스 등 백그라운드 스레드에서 get()을 호출하므로 AtomicReference로 보호한다.
  */
 object WebViewEventDispatcherRegistry {
-    private val ref = java.util.concurrent.atomic.AtomicReference<WebViewEventDispatcher?>(null)
+    private val ref = AtomicReference<WebViewEventDispatcher?>(null)
 
     fun register(dispatcher: WebViewEventDispatcher) {
         ref.set(dispatcher)

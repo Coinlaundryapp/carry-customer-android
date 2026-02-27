@@ -95,6 +95,9 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
 
     override fun onDestroy() {
         WebViewEventDispatcherRegistry.unregister(this)
+        locationHandler.cleanup()
+        mediaHandler.cleanup()
+        loginHandler.cleanup()
         networkCallback?.let { networkUtils.unregisterNetworkCallback(it) }
         binding.webView.destroy()
         super.onDestroy()

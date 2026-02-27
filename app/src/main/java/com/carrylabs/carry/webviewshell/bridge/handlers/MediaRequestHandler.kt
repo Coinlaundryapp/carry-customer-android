@@ -50,6 +50,14 @@ class MediaRequestHandler(
         this.dispatcher = dispatcher
     }
 
+    fun cleanup() {
+        fileUploadCallback?.onReceiveValue(null)
+        fileUploadCallback = null
+        pendingRequestId = null
+        cameraImageUri = null
+        dispatcher = null
+    }
+
     // ── Bridge: Camera ───────────────────────────────────────────────
 
     fun handleCamera(requestId: String) {

@@ -40,4 +40,8 @@ class LoginRequestHandler(
         dispatcher.dispatchLoginComplete(code)
         pendingRequestId = null
     }
+
+    fun cleanup() {
+        pendingRequestId = null
+    }
 }

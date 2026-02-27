@@ -20,6 +20,7 @@ class LocationRequestHandler(
 
     private var pendingGeolocationOrigin: String? = null
     private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
+    private var activeCancellationToken: CancellationTokenSource? = null
 
     fun handle(requestId: String, dispatcher: NativeCallDispatcher) {
         if (!hasLocationPermission()) {
@@ -51,6 +52,13 @@ class LocationRequestHandler(
         }
     }
 
+    fun cleanup() {
+        activeCancellationToken?.cancel()
+        activeCancellationToken = null
+        pendingGeolocationCallback = null
+        pendingGeolocationOrigin = null
+    }
+
     private fun fetchLocation(requestId: String, dispatcher: NativeCallDispatcher) {
         try {
             if (!hasLocationPermission()) {
@@ -62,11 +70,13 @@ class LocationRequestHandler(
 
             val fusedClient = LocationServices.getFusedLocationProviderClient(activity)
             val cancellationToken = CancellationTokenSource()
+            activeCancellationToken = cancellationToken
 
             fusedClient.getCurrentLocation(
                 Priority.PRIORITY_HIGH_ACCURACY,
                 cancellationToken.token
             ).addOnSuccessListener { location ->
+                activeCancellationToken = null
                 if (location != null) {
                     val data = JSONObject().apply {
                         put("latitude", location.latitude)
@@ -80,11 +90,13 @@ class LocationRequestHandler(
                     )
                 }
             }.addOnFailureListener { e ->
+                activeCancellationToken = null
                 dispatcher.sendCallback(
                     BridgeResult(requestId, false, error = "Location error: ${e.message}")
                 )
             }
         } catch (e: Exception) {
+            activeCancellationToken = null
             dispatcher.sendCallback(
                 BridgeResult(requestId, false, error = "Location error: ${e.message}")
             )

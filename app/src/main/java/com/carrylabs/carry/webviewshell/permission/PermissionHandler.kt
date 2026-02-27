@@ -28,14 +28,16 @@ class PermissionHandler(activity: ComponentActivity) {
             processNext()
         }
 
-    suspend fun request(permissions: Array<String>): Map<String, Boolean> =
-        suspendCancellableCoroutine { cont ->
+    suspend fun request(permissions: Array<String>): Map<String, Boolean> {
+        require(permissions.isNotEmpty()) { "permissions must not be empty" }
+        return suspendCancellableCoroutine { cont ->
             pendingQueue.add(PendingRequest(permissions, cont))
             cont.invokeOnCancellation {
                 pendingQueue.removeAll { it.continuation === cont }
             }
             processNext()
         }
+    }
 
     suspend fun requestSingle(permission: String): Boolean {
         val results = request(arrayOf(permission))

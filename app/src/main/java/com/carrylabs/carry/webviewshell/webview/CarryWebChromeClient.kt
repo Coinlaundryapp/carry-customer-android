@@ -1,7 +1,6 @@
 package com.carrylabs.carry.webviewshell.webview
 
 import android.net.Uri
-import android.util.Log
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
 import android.webkit.ValueCallback
@@ -19,11 +18,13 @@ class CarryWebChromeClient(
     }
 
     override fun onConsoleMessage(consoleMessage: ConsoleMessage): Boolean {
-        Log.d(
-            "CarryWebView",
-            "[${consoleMessage.messageLevel()}] ${consoleMessage.message()} " +
-                    "(${consoleMessage.sourceId()}:${consoleMessage.lineNumber()})"
-        )
+        if (com.carrylabs.carry.webviewshell.BuildConfig.DEBUG) {
+            android.util.Log.d(
+                "CarryWebView",
+                "[${consoleMessage.messageLevel()}] ${consoleMessage.message()} " +
+                        "(${consoleMessage.sourceId()}:${consoleMessage.lineNumber()})"
+            )
+        }
         return true
     }
 

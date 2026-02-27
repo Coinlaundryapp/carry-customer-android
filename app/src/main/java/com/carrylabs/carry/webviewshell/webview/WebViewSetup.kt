@@ -13,8 +13,6 @@ object WebViewSetup {
         webView.settings.apply {
             javaScriptEnabled = true
             domStorageEnabled = true
-            @Suppress("DEPRECATION")
-            databaseEnabled = true
 
             // Cache
             cacheMode = if (BuildConfig.DEBUG) {

@@ -57,11 +57,15 @@ class UrlWhitelistManagerTest {
     // ── isSpecialScheme ──────────────────────────────────────────────
 
     @Test
-    fun `isSpecialScheme - tel mailto sms intent return true`() {
+    fun `isSpecialScheme - tel mailto sms return true`() {
         assertTrue(UrlWhitelistManager.isSpecialScheme("tel:01012345678"))
         assertTrue(UrlWhitelistManager.isSpecialScheme("mailto:test@carry.com"))
         assertTrue(UrlWhitelistManager.isSpecialScheme("sms:01012345678"))
-        assertTrue(UrlWhitelistManager.isSpecialScheme("intent://something"))
+    }
+
+    @Test
+    fun `isSpecialScheme - intent is not special scheme`() {
+        assertFalse(UrlWhitelistManager.isSpecialScheme("intent://something"))
     }
 
     @Test

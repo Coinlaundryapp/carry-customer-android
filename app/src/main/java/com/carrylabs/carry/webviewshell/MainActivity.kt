@@ -84,7 +84,6 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
         if (::dispatcher.isInitialized) {
             dispatcher.dispatchAppResume()
         }
-        dispatchNativeEvent("appResumed", "{}")
     }
 
     override fun onNewIntent(intent: Intent) {

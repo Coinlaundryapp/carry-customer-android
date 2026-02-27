@@ -4,14 +4,11 @@ import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
-import com.carrylabs.carry.webviewshell.webview.CookieHelper
-
 class CarryApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
         createNotificationChannel()
-        CookieHelper.setup()
     }
 
     private fun createNotificationChannel() {

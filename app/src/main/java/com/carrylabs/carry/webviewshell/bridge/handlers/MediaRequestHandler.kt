@@ -24,26 +24,26 @@ class MediaRequestHandler(
     private var pendingRequestId: String? = null
     private var cameraImageUri: Uri? = null
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
+    private var isGalleryPick = false
 
     // ── Activity Result Launchers (등록은 Activity STARTED 전에 완료) ──
 
-    private val fileChooserLauncher = activity.registerForActivityResult(
+    private val contentPickerLauncher = activity.registerForActivityResult(
         ActivityResultContracts.GetContent()
     ) { uri ->
-        fileUploadCallback?.onReceiveValue(if (uri != null) arrayOf(uri) else null)
-        fileUploadCallback = null
+        if (isGalleryPick) {
+            handleGalleryResult(uri)
+        } else {
+            fileUploadCallback?.onReceiveValue(if (uri != null) arrayOf(uri) else null)
+            fileUploadCallback = null
+        }
+        isGalleryPick = false
     }
 
     private val cameraLauncher = activity.registerForActivityResult(
         ActivityResultContracts.TakePicture()
     ) { success ->
         handleCameraResult(success)
-    }
-
-    private val galleryLauncher = activity.registerForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        handleGalleryResult(uri)
     }
 
     fun initialize(dispatcher: NativeCallDispatcher) {
@@ -109,7 +109,8 @@ class MediaRequestHandler(
 
     fun handleGallery(requestId: String) {
         pendingRequestId = requestId
-        galleryLauncher.launch("image/*")
+        isGalleryPick = true
+        contentPickerLauncher.launch("image/*")
     }
 
     private fun handleGalleryResult(uri: Uri?) {
@@ -134,7 +135,8 @@ class MediaRequestHandler(
         fileUploadCallback = callback
         return try {
             val intent = params.createIntent()
-            fileChooserLauncher.launch(intent.type ?: "*/*")
+            isGalleryPick = false
+            contentPickerLauncher.launch(intent.type ?: "*/*")
             true
         } catch (_: Exception) {
             fileUploadCallback?.onReceiveValue(null)

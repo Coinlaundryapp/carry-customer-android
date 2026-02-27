@@ -4,12 +4,6 @@ import android.webkit.CookieManager
 
 object CookieHelper {
 
-    fun setup() {
-        val cookieManager = CookieManager.getInstance()
-        cookieManager.setAcceptCookie(true)
-        cookieManager.setAcceptThirdPartyCookies(null, true)
-    }
-
     fun flush() {
         CookieManager.getInstance().flush()
     }

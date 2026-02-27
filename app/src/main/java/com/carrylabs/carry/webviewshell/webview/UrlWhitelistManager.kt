@@ -12,7 +12,7 @@ object UrlWhitelistManager {
         "localhost"
     )
 
-    private val specialSchemes = setOf("tel", "mailto", "sms", "intent")
+    private val specialSchemes = setOf("tel", "mailto", "sms")
 
     private val appLinkSchemes = setOf(
         "kakaotalk",

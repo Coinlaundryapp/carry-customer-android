@@ -5,11 +5,13 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
+import android.util.Log
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import com.carrylabs.carry.webviewshell.BuildConfig
 
 class CarryWebViewClient(
@@ -20,6 +22,10 @@ class CarryWebViewClient(
 
     enum class ErrorType {
         NETWORK, SERVER, SSL
+    }
+
+    private companion object {
+        private const val TAG = "CarryWebViewClient"
     }
 
     private var hasError = false
@@ -41,7 +47,8 @@ class CarryWebViewClient(
         if (UrlWhitelistManager.isSpecialScheme(url)) {
             try {
                 view.context.startActivity(Intent(Intent.ACTION_VIEW, request.url))
-            } catch (_: Exception) {
+            } catch (e: ActivityNotFoundException) {
+                Log.w(TAG, "No app found for scheme: ${request.url.scheme}", e)
             }
             return true
         }
@@ -54,7 +61,8 @@ class CarryWebViewClient(
         // External URLs - open in system browser
         try {
             view.context.startActivity(Intent(Intent.ACTION_VIEW, request.url))
-        } catch (_: Exception) {
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(view.context, "No app found to open this link", Toast.LENGTH_SHORT).show()
         }
         return true
     }
@@ -79,14 +87,19 @@ class CarryWebViewClient(
             // Fallback to Play Store
             val packageName = intent.`package`
             if (!packageName.isNullOrEmpty()) {
-                val marketIntent = Intent(
-                    Intent.ACTION_VIEW,
-                    Uri.parse("market://details?id=$packageName")
-                )
-                view.context.startActivity(marketIntent)
+                try {
+                    val marketIntent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("market://details?id=$packageName")
+                    )
+                    view.context.startActivity(marketIntent)
+                } catch (e: ActivityNotFoundException) {
+                    Log.w(TAG, "Play Store not available for package: $packageName", e)
+                }
                 return true
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to handle intent scheme: $url", e)
         }
         return true
     }

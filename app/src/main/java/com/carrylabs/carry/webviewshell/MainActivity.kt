@@ -117,7 +117,10 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
         binding.webView.addJavascriptInterface(bridge, "CarryNative")
 
         binding.webView.webViewClient = CarryWebViewClient(
-            onPageStarted = { binding.progressBar.visibility = View.VISIBLE },
+            onPageStarted = {
+                binding.progressBar.visibility = View.VISIBLE
+                locationHandler.invalidateGeolocationCallback()
+            },
             onPageFinished = {
                 binding.progressBar.visibility = View.GONE
                 splashView.dismiss()

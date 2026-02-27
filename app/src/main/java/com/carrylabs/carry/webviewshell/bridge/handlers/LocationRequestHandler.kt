@@ -52,11 +52,15 @@ class LocationRequestHandler(
         }
     }
 
+    fun invalidateGeolocationCallback() {
+        pendingGeolocationCallback = null
+        pendingGeolocationOrigin = null
+    }
+
     fun cleanup() {
         activeCancellationToken?.cancel()
         activeCancellationToken = null
-        pendingGeolocationCallback = null
-        pendingGeolocationOrigin = null
+        invalidateGeolocationCallback()
     }
 
     private fun fetchLocation(requestId: String, dispatcher: NativeCallDispatcher) {

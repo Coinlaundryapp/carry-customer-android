@@ -106,10 +106,16 @@ class CarryBridge(
 
     @JavascriptInterface
     fun readClipboard(): String {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = clipboard.primaryClip ?: return ""
-        if (clip.itemCount == 0) return ""
-        return clip.getItemAt(0).text?.toString() ?: ""
+        return try {
+            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            if (!clipboard.hasPrimaryClip()) return ""
+            val clip = clipboard.primaryClip ?: return ""
+            if (clip.itemCount == 0) return ""
+            clip.getItemAt(0).text?.toString() ?: ""
+        } catch (_: SecurityException) {
+            // Android 10+ 제한: 포그라운드 앱만 클립보드 접근 가능
+            ""
+        }
     }
 
     // ── Asynchronous methods (return requestId) ──────────────────────

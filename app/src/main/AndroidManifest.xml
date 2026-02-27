@@ -59,6 +59,11 @@
         android:theme="@style/Theme.CarryWebViewShell"
         tools:targetApi="34">
 
+        <!-- Google Safe Browsing: 악성 URL 자동 차단 -->
+        <meta-data
+            android:name="android.webkit.WebView.EnableSafeBrowsing"
+            android:value="true" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"

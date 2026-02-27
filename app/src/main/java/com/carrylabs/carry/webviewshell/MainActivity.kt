@@ -7,11 +7,13 @@ import android.net.ConnectivityManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import com.carrylabs.carry.webviewshell.bridge.BridgeResult
 import com.carrylabs.carry.webviewshell.bridge.CarryBridge
 import com.carrylabs.carry.webviewshell.bridge.NativeCallDispatcher
@@ -30,9 +32,14 @@ import com.carrylabs.carry.webviewshell.util.NetworkUtils
 import com.carrylabs.carry.webviewshell.webview.CarryWebChromeClient
 import com.carrylabs.carry.webviewshell.webview.CarryWebViewClient
 import com.carrylabs.carry.webviewshell.webview.WebViewSetup
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 
 class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
+
+    private companion object {
+        private const val TAG = "MainActivity"
+    }
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var dispatcher: NativeCallDispatcher
@@ -111,7 +118,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
         mediaHandler.initialize(dispatcher)
 
         val bridge = CarryBridge(this) { method, requestId, args ->
-            runOnUiThread { handleAsyncBridgeRequest(method, requestId, args) }
+            handleAsyncBridgeRequest(method, requestId, args)
         }
         binding.webView.addJavascriptInterface(bridge, "AndroidBridge")
         binding.webView.addJavascriptInterface(bridge, "CarryNative")
@@ -130,6 +137,10 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
                 binding.progressBar.visibility = View.GONE
                 binding.swipeRefresh.isRefreshing = false
                 errorView.show(errorType)
+            },
+            onRendererCrash = {
+                Log.e(TAG, "WebView renderer crashed — recreating")
+                recreate()
             }
         )
 
@@ -140,7 +151,9 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
             },
             onFileChooser = { callback, params -> mediaHandler.handleFileChooser(callback, params) },
             onGeolocationPermission = { origin, callback ->
-                locationHandler.handleGeolocationPermission(origin, callback)
+                lifecycleScope.launch {
+                    locationHandler.handleGeolocationPermission(origin, callback)
+                }
             }
         )
     }
@@ -246,7 +259,9 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
             ) {
-                permissionHandler.requestSingle(Manifest.permission.POST_NOTIFICATIONS) { _ -> }
+                lifecycleScope.launch {
+                    permissionHandler.requestSingle(Manifest.permission.POST_NOTIFICATIONS)
+                }
             }
         }
     }
@@ -254,21 +269,23 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
     // ── Async Bridge Request Routing ─────────────────────────────────
 
     private fun handleAsyncBridgeRequest(method: String, requestId: String, args: JSONObject) {
-        when (method) {
-            CarryBridge.REQUEST_BIOMETRIC -> biometricHandler.handle(requestId, args, dispatcher)
-            CarryBridge.REQUEST_LOCATION -> locationHandler.handle(requestId, dispatcher)
-            CarryBridge.REQUEST_CAMERA -> mediaHandler.handleCamera(requestId)
-            CarryBridge.OPEN_GALLERY -> mediaHandler.handleGallery(requestId)
-            CarryBridge.REQUEST_LOGIN -> loginHandler.handle(requestId, dispatcher)
-            CarryBridge.REQUEST_NOTIFICATION_PERMISSION -> handleNotificationPermission(requestId)
-            CarryBridge.OPEN_EXTERNAL_BROWSER -> handleOpenExternalBrowser(requestId, args)
-            CarryBridge.CLOSE_APP -> handleCloseApp(requestId)
+        lifecycleScope.launch {
+            when (method) {
+                CarryBridge.REQUEST_BIOMETRIC -> biometricHandler.handle(requestId, args, dispatcher)
+                CarryBridge.REQUEST_LOCATION -> locationHandler.handle(requestId, dispatcher)
+                CarryBridge.REQUEST_CAMERA -> mediaHandler.handleCamera(requestId)
+                CarryBridge.OPEN_GALLERY -> mediaHandler.handleGallery(requestId)
+                CarryBridge.REQUEST_LOGIN -> loginHandler.handle(requestId, dispatcher)
+                CarryBridge.REQUEST_NOTIFICATION_PERMISSION -> handleNotificationPermission(requestId)
+                CarryBridge.OPEN_EXTERNAL_BROWSER -> handleOpenExternalBrowser(requestId, args)
+                CarryBridge.CLOSE_APP -> handleCloseApp(requestId)
+            }
         }
     }
 
     // ── Simple handlers (추출 불필요) ────────────────────────────────
 
-    private fun handleNotificationPermission(requestId: String) {
+    private suspend fun handleNotificationPermission(requestId: String) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 == PackageManager.PERMISSION_GRANTED
@@ -278,11 +295,10 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
                 )
                 return
             }
-            permissionHandler.requestSingle(Manifest.permission.POST_NOTIFICATIONS) { granted ->
-                dispatcher.sendCallback(
-                    BridgeResult(requestId, true, JSONObject().put("granted", granted))
-                )
-            }
+            val granted = permissionHandler.requestSingle(Manifest.permission.POST_NOTIFICATIONS)
+            dispatcher.sendCallback(
+                BridgeResult(requestId, true, JSONObject().put("granted", granted))
+            )
         } else {
             dispatcher.sendCallback(
                 BridgeResult(requestId, true, JSONObject().put("granted", true))

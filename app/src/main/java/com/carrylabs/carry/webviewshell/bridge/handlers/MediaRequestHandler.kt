@@ -60,21 +60,18 @@ class MediaRequestHandler(
 
     // ── Bridge: Camera ───────────────────────────────────────────────
 
-    fun handleCamera(requestId: String) {
+    suspend fun handleCamera(requestId: String) {
         val d = dispatcher ?: return
         if (ContextCompat.checkSelfPermission(activity, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            permissionHandler.requestSingle(Manifest.permission.CAMERA) { granted ->
-                if (granted) {
-                    launchCamera(requestId)
-                } else {
-                    d.sendCallback(
-                        BridgeResult(requestId, false, error = "Camera permission denied")
-                    )
-                }
+            val granted = permissionHandler.requestSingle(Manifest.permission.CAMERA)
+            if (!granted) {
+                d.sendCallback(
+                    BridgeResult(requestId, false, error = "Camera permission denied")
+                )
+                return
             }
-            return
         }
         launchCamera(requestId)
     }

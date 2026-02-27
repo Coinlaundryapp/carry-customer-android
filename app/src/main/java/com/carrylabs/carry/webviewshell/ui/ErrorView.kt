@@ -37,6 +37,10 @@ class ErrorView(
                 titleView.text = context.getString(R.string.error_ssl_title)
                 messageView.text = context.getString(R.string.error_ssl_message)
             }
+            ErrorType.SAFE_BROWSING -> {
+                titleView.text = context.getString(R.string.error_safe_browsing_title)
+                messageView.text = context.getString(R.string.error_safe_browsing_message)
+            }
         }
         errorContainer.visibility = View.VISIBLE
     }

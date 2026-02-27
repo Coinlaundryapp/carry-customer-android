@@ -1,12 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <network-security-config>
+
+    <!-- 기본: HTTPS만 허용, 시스템 인증서 신뢰 -->
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>
     </base-config>
+
+    <!-- 개발용: 로컬 서버 (에뮬레이터/localhost) cleartext 허용 -->
     <domain-config cleartextTrafficPermitted="true">
         <domain includeSubdomains="true">10.0.2.2</domain>
         <domain includeSubdomains="true">localhost</domain>
     </domain-config>
+
+    <!--
+        프로덕션 Certificate Pinning (SSL Pinning)
+
+        아래는 carry.com 도메인에 대한 인증서 고정 설정 예시입니다.
+        실제 배포 시 아래 절차로 핀 해시를 교체하세요:
+
+        1. 서버 인증서 체인의 공개키 SHA-256 해시를 추출합니다:
+           $ openssl s_client -connect app.carry.com:443 -servername app.carry.com \
+               < /dev/null 2>/dev/null | openssl x509 -pubkey -noout \
+               | openssl pkey -pubin -outform DER \
+               | openssl dgst -sha256 -binary | openssl enc -base64
+
+        2. 리프(leaf)와 중간(intermediate) 인증서의 핀을 최소 2개 설정합니다.
+           하나는 현재 인증서, 하나는 백업용(갱신 대비)입니다.
+
+        3. expiration 날짜는 인증서 갱신 주기에 맞춰 설정합니다.
+           만료 후에는 핀 검증이 비활성화되므로 앱 업데이트를 통해 갱신해야 합니다.
+
+        주의:
+        - 잘못된 핀 설정 시 앱이 서버에 접속할 수 없습니다.
+        - 반드시 백업 핀을 포함하세요 (인증서 갱신 시 앱이 차단되는 것을 방지).
+        - 개발/스테이징 환경에는 핀을 적용하지 마세요.
+    -->
+    <!--
+    <domain-config>
+        <domain includeSubdomains="true">carry.com</domain>
+        <pin-set expiration="2026-12-31">
+            <pin digest="SHA-256">LEAF_CERTIFICATE_PIN_BASE64=</pin>
+            <pin digest="SHA-256">BACKUP_INTERMEDIATE_PIN_BASE64=</pin>
+        </pin-set>
+    </domain-config>
+    -->
+
 </network-security-config>

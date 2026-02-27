@@ -11,7 +11,9 @@ import com.carrylabs.carry.webviewshell.permission.PermissionHandler
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import com.google.android.gms.tasks.CancellationTokenSource
+import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
+import kotlin.coroutines.resume
 
 class LocationRequestHandler(
     private val activity: AppCompatActivity,
@@ -22,34 +24,34 @@ class LocationRequestHandler(
     private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
     private var activeCancellationToken: CancellationTokenSource? = null
 
-    fun handle(requestId: String, dispatcher: NativeCallDispatcher) {
+    suspend fun handle(requestId: String, dispatcher: NativeCallDispatcher) {
         if (!hasLocationPermission()) {
-            permissionHandler.requestSingle(Manifest.permission.ACCESS_FINE_LOCATION) { granted ->
-                if (granted) {
-                    fetchLocation(requestId, dispatcher)
-                } else {
-                    dispatcher.sendCallback(
-                        BridgeResult(requestId, false, error = "Location permission denied")
-                    )
-                }
+            val granted = permissionHandler.requestSingle(Manifest.permission.ACCESS_FINE_LOCATION)
+            if (!granted) {
+                dispatcher.sendCallback(
+                    BridgeResult(requestId, false, error = "Location permission denied")
+                )
+                return
             }
-            return
         }
-        fetchLocation(requestId, dispatcher)
+        val result = fetchLocation(requestId)
+        dispatcher.sendCallback(result)
     }
 
-    fun handleGeolocationPermission(origin: String, callback: GeolocationPermissions.Callback) {
+    suspend fun handleGeolocationPermission(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
         if (hasLocationPermission()) {
             callback.invoke(origin, true, false)
             return
         }
         pendingGeolocationOrigin = origin
         pendingGeolocationCallback = callback
-        permissionHandler.requestSingle(Manifest.permission.ACCESS_FINE_LOCATION) { granted ->
-            pendingGeolocationCallback?.invoke(pendingGeolocationOrigin ?: origin, granted, false)
-            pendingGeolocationCallback = null
-            pendingGeolocationOrigin = null
-        }
+        val granted = permissionHandler.requestSingle(Manifest.permission.ACCESS_FINE_LOCATION)
+        pendingGeolocationCallback?.invoke(pendingGeolocationOrigin ?: origin, granted, false)
+        pendingGeolocationCallback = null
+        pendingGeolocationOrigin = null
     }
 
     fun invalidateGeolocationCallback() {
@@ -63,47 +65,48 @@ class LocationRequestHandler(
         invalidateGeolocationCallback()
     }
 
-    private fun fetchLocation(requestId: String, dispatcher: NativeCallDispatcher) {
-        try {
-            if (!hasLocationPermission()) {
-                dispatcher.sendCallback(
-                    BridgeResult(requestId, false, error = "Location permission not granted")
-                )
-                return
-            }
+    private suspend fun fetchLocation(requestId: String): BridgeResult {
+        if (!hasLocationPermission()) {
+            return BridgeResult(requestId, false, error = "Location permission not granted")
+        }
 
-            val fusedClient = LocationServices.getFusedLocationProviderClient(activity)
-            val cancellationToken = CancellationTokenSource()
-            activeCancellationToken = cancellationToken
+        return suspendCancellableCoroutine { cont ->
+            try {
+                val fusedClient = LocationServices.getFusedLocationProviderClient(activity)
+                val cancellationToken = CancellationTokenSource()
+                activeCancellationToken = cancellationToken
 
-            fusedClient.getCurrentLocation(
-                Priority.PRIORITY_HIGH_ACCURACY,
-                cancellationToken.token
-            ).addOnSuccessListener { location ->
-                activeCancellationToken = null
-                if (location != null) {
-                    val data = JSONObject().apply {
-                        put("latitude", location.latitude)
-                        put("longitude", location.longitude)
-                        put("accuracy", location.accuracy.toDouble())
+                cont.invokeOnCancellation { cancellationToken.cancel() }
+
+                fusedClient.getCurrentLocation(
+                    Priority.PRIORITY_HIGH_ACCURACY,
+                    cancellationToken.token
+                ).addOnSuccessListener { location ->
+                    activeCancellationToken = null
+                    if (location != null) {
+                        val data = JSONObject().apply {
+                            put("latitude", location.latitude)
+                            put("longitude", location.longitude)
+                            put("accuracy", location.accuracy.toDouble())
+                        }
+                        cont.resume(BridgeResult(requestId, true, data))
+                    } else {
+                        cont.resume(
+                            BridgeResult(requestId, false, error = "Location unavailable")
+                        )
                     }
-                    dispatcher.sendCallback(BridgeResult(requestId, true, data))
-                } else {
-                    dispatcher.sendCallback(
-                        BridgeResult(requestId, false, error = "Location unavailable")
+                }.addOnFailureListener { e ->
+                    activeCancellationToken = null
+                    cont.resume(
+                        BridgeResult(requestId, false, error = "Location error: ${e.message}")
                     )
                 }
-            }.addOnFailureListener { e ->
+            } catch (e: Exception) {
                 activeCancellationToken = null
-                dispatcher.sendCallback(
+                cont.resume(
                     BridgeResult(requestId, false, error = "Location error: ${e.message}")
                 )
             }
-        } catch (e: Exception) {
-            activeCancellationToken = null
-            dispatcher.sendCallback(
-                BridgeResult(requestId, false, error = "Location error: ${e.message}")
-            )
         }
     }
 

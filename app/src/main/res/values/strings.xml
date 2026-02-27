@@ -8,6 +8,8 @@
     <string name="error_server_message">We\'re having trouble connecting. Please try again later.</string>
     <string name="error_ssl_title">Connection Not Secure</string>
     <string name="error_ssl_message">A secure connection could not be established.</string>
+    <string name="error_safe_browsing_title">Dangerous Site Blocked</string>
+    <string name="error_safe_browsing_message">This site has been flagged as potentially harmful.</string>
     <string name="error_retry">Retry</string>
 
     <!-- Biometric -->

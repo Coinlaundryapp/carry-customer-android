@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 import android.net.Uri
 import android.net.http.SslError
 import android.util.Log
+import android.webkit.RenderProcessGoneDetail
+import android.webkit.SafeBrowsingResponse
 import android.webkit.SslErrorHandler
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -17,11 +19,12 @@ import com.carrylabs.carry.webviewshell.BuildConfig
 class CarryWebViewClient(
     private val onPageStarted: () -> Unit,
     private val onPageFinished: () -> Unit,
-    private val onError: (errorType: ErrorType) -> Unit
+    private val onError: (errorType: ErrorType) -> Unit,
+    private val onRendererCrash: () -> Unit = {}
 ) : WebViewClient() {
 
     enum class ErrorType {
-        NETWORK, SERVER, SSL
+        NETWORK, SERVER, SSL, SAFE_BROWSING
     }
 
     private companion object {
@@ -179,5 +182,25 @@ class CarryWebViewClient(
             hasError = true
             onError(ErrorType.SSL)
         }
+    }
+
+    override fun onSafeBrowsingHit(
+        view: WebView,
+        request: WebResourceRequest,
+        threatType: Int,
+        callback: SafeBrowsingResponse
+    ) {
+        Log.w(TAG, "Safe Browsing threat detected (type=$threatType): ${request.url}")
+        callback.backToSafety(true)
+        if (request.isForMainFrame) {
+            hasError = true
+            onError(ErrorType.SAFE_BROWSING)
+        }
+    }
+
+    override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean {
+        Log.e(TAG, "Renderer process gone (crashed=${detail.didCrash()}, priority=${detail.rendererPriorityAtExit()})")
+        onRendererCrash()
+        return true // true = 이 WebView가 제거될 것임을 시스템에 알림
     }
 }

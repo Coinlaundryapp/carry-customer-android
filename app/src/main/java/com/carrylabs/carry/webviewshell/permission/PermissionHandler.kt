@@ -3,13 +3,16 @@ package com.carrylabs.carry.webviewshell.permission
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.LinkedList
+import kotlin.coroutines.resume
 
 class PermissionHandler(activity: ComponentActivity) {
 
     private data class PendingRequest(
         val permissions: Array<String>,
-        val callback: (Map<String, Boolean>) -> Unit
+        val continuation: CancellableContinuation<Map<String, Boolean>>
     )
 
     private val pendingQueue = LinkedList<PendingRequest>()
@@ -20,20 +23,23 @@ class PermissionHandler(activity: ComponentActivity) {
             ActivityResultContracts.RequestMultiplePermissions()
         ) { results ->
             val current = pendingQueue.poll()
-            current?.callback?.invoke(results)
             isProcessing = false
+            current?.continuation?.resume(results)
             processNext()
         }
 
-    fun request(permissions: Array<String>, callback: (Map<String, Boolean>) -> Unit) {
-        pendingQueue.add(PendingRequest(permissions, callback))
-        processNext()
-    }
-
-    fun requestSingle(permission: String, callback: (Boolean) -> Unit) {
-        request(arrayOf(permission)) { results ->
-            callback(results[permission] ?: false)
+    suspend fun request(permissions: Array<String>): Map<String, Boolean> =
+        suspendCancellableCoroutine { cont ->
+            pendingQueue.add(PendingRequest(permissions, cont))
+            cont.invokeOnCancellation {
+                pendingQueue.removeAll { it.continuation === cont }
+            }
+            processNext()
         }
+
+    suspend fun requestSingle(permission: String): Boolean {
+        val results = request(arrayOf(permission))
+        return results[permission] ?: false
     }
 
     private fun processNext() {

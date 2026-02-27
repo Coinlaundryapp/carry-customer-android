@@ -82,10 +82,13 @@ dependencies {
 
     implementation(libs.play.services.location)
     implementation(libs.androidx.browser)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
 
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
     testImplementation(libs.json)
+    testImplementation(libs.kotlinx.coroutines.test)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

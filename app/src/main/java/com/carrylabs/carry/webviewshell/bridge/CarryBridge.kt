@@ -38,6 +38,11 @@ class CarryBridge(
     }
 
     @JavascriptInterface
+    fun getFCMToken(): String {
+        return PushTokenManager.getToken(context)
+    }
+
+    @JavascriptInterface
     fun showToast(message: String) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
     }
@@ -126,6 +131,37 @@ class CarryBridge(
     fun openGallery(): String {
         val requestId = BridgeCallbackManager.generateRequestId()
         onAsyncRequest("openGallery", requestId, JSONObject())
+        return requestId
+    }
+
+    @JavascriptInterface
+    fun requestLogin(): String {
+        val requestId = BridgeCallbackManager.generateRequestId()
+        onAsyncRequest("requestLogin", requestId, JSONObject())
+        return requestId
+    }
+
+    @JavascriptInterface
+    fun requestNotificationPermission(): String {
+        val requestId = BridgeCallbackManager.generateRequestId()
+        onAsyncRequest("requestNotificationPermission", requestId, JSONObject())
+        return requestId
+    }
+
+    @JavascriptInterface
+    fun openExternalBrowser(url: String): String {
+        val requestId = BridgeCallbackManager.generateRequestId()
+        val args = JSONObject().apply {
+            put("url", url)
+        }
+        onAsyncRequest("openExternalBrowser", requestId, args)
+        return requestId
+    }
+
+    @JavascriptInterface
+    fun closeApp(): String {
+        val requestId = BridgeCallbackManager.generateRequestId()
+        onAsyncRequest("closeApp", requestId, JSONObject())
         return requestId
     }
 }

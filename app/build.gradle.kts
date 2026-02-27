@@ -31,17 +31,20 @@ android {
             applicationIdSuffix = ".dev"
             buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:3000\"")
             buildConfigField("boolean", "ALLOW_CLEARTEXT", "true")
+            buildConfigField("String", "KAKAO_CLIENT_ID", "\"\"")
         }
         create("staging") {
             dimension = "environment"
             applicationIdSuffix = ".staging"
             buildConfigField("String", "BASE_URL", "\"https://staging.carry.com\"")
             buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
+            buildConfigField("String", "KAKAO_CLIENT_ID", "\"\"")
         }
         create("prod") {
             dimension = "environment"
             buildConfigField("String", "BASE_URL", "\"https://app.carry.com\"")
             buildConfigField("boolean", "ALLOW_CLEARTEXT", "false")
+            buildConfigField("String", "KAKAO_CLIENT_ID", "\"\"")
         }
     }
 
@@ -78,8 +81,11 @@ dependencies {
     implementation(libs.firebase.messaging)
 
     implementation(libs.play.services.location)
+    implementation(libs.androidx.browser)
 
     testImplementation(libs.junit)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.json)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }

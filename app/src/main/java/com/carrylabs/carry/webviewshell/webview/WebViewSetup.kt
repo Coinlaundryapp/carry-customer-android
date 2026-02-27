@@ -35,11 +35,11 @@ object WebViewSetup {
             allowContentAccess = true
 
             // Mixed content
-            mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+            mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
 
             // User agent
             val defaultUA = userAgentString
-            userAgentString = "$defaultUA CarryApp/${BuildConfig.VERSION_NAME}"
+            userAgentString = "$defaultUA Carry-Android/${BuildConfig.VERSION_NAME}"
 
             // Media
             mediaPlaybackRequiresUserGesture = false

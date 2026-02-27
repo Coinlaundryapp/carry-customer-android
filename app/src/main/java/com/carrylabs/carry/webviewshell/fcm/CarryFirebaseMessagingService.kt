@@ -26,11 +26,15 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         Log.d(TAG, "FCM message received: ${message.data}")
 
-        // Try to dispatch to WebView first
-        val dispatched = MainActivity.instance?.get()?.dispatchNativeEvent(
-            "pushReceived",
-            message.data.toString()
-        ) ?: false
+        val dataJson = org.json.JSONObject(message.data as Map<*, *>).toString()
+
+        // 명세서 콜백: window.onPushNotification(data)
+        val dispatched = MainActivity.instance?.get()?.dispatchPushNotification(dataJson) ?: false
+
+        // 기존 이벤트도 유지
+        if (dispatched) {
+            MainActivity.instance?.get()?.dispatchNativeEvent("pushReceived", dataJson)
+        }
 
         // If app is in background or WebView not available, show notification
         if (!dispatched) {

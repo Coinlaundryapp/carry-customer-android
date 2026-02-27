@@ -1,5 +1,6 @@
 package com.carrylabs.carry.webviewshell.webview
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.graphics.Bitmap
 import android.net.Uri
@@ -26,6 +27,16 @@ class CarryWebViewClient(
     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
         val url = request.url.toString()
 
+        // Handle intent:// scheme
+        if (url.startsWith("intent://")) {
+            return handleIntentScheme(view, url)
+        }
+
+        // Handle payment app schemes
+        if (UrlWhitelistManager.isAppLinkScheme(url)) {
+            return handleAppLinkScheme(view, url)
+        }
+
         // Handle special schemes (tel:, mailto:, sms:)
         if (UrlWhitelistManager.isSpecialScheme(url)) {
             try {
@@ -43,6 +54,61 @@ class CarryWebViewClient(
         // External URLs - open in system browser
         try {
             view.context.startActivity(Intent(Intent.ACTION_VIEW, request.url))
+        } catch (_: Exception) {
+        }
+        return true
+    }
+
+    private fun handleIntentScheme(view: WebView, url: String): Boolean {
+        try {
+            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+            // Try to launch the app
+            val resolveInfo = view.context.packageManager.resolveActivity(intent, 0)
+            if (resolveInfo != null) {
+                view.context.startActivity(intent)
+                return true
+            }
+
+            // Try browser_fallback_url
+            val fallbackUrl = intent.getStringExtra("browser_fallback_url")
+            if (!fallbackUrl.isNullOrEmpty()) {
+                view.loadUrl(fallbackUrl)
+                return true
+            }
+
+            // Fallback to Play Store
+            val packageName = intent.`package`
+            if (!packageName.isNullOrEmpty()) {
+                val marketIntent = Intent(
+                    Intent.ACTION_VIEW,
+                    Uri.parse("market://details?id=$packageName")
+                )
+                view.context.startActivity(marketIntent)
+                return true
+            }
+        } catch (_: Exception) {
+        }
+        return true
+    }
+
+    private fun handleAppLinkScheme(view: WebView, url: String): Boolean {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            view.context.startActivity(intent)
+        } catch (_: ActivityNotFoundException) {
+            // App not installed — try to extract package name and open Play Store
+            val uri = Uri.parse(url)
+            val scheme = uri.scheme
+            if (!scheme.isNullOrEmpty()) {
+                try {
+                    val marketIntent = Intent(
+                        Intent.ACTION_VIEW,
+                        Uri.parse("market://search?q=$scheme")
+                    )
+                    view.context.startActivity(marketIntent)
+                } catch (_: Exception) {
+                }
+            }
         } catch (_: Exception) {
         }
         return true

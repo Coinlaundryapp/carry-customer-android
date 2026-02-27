@@ -3,13 +3,15 @@ package com.carrylabs.carry.webviewshell.webview
 import android.net.Uri
 import android.util.Log
 import android.webkit.ConsoleMessage
+import android.webkit.GeolocationPermissions
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 
 class CarryWebChromeClient(
     private val onProgressChanged: (Int) -> Unit,
-    private val onFileChooser: (ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams) -> Boolean
+    private val onFileChooser: (ValueCallback<Array<Uri>>, WebChromeClient.FileChooserParams) -> Boolean,
+    private val onGeolocationPermission: (String, GeolocationPermissions.Callback) -> Unit = { _, _ -> }
 ) : WebChromeClient() {
 
     override fun onProgressChanged(view: WebView, newProgress: Int) {
@@ -31,5 +33,12 @@ class CarryWebChromeClient(
         fileChooserParams: FileChooserParams
     ): Boolean {
         return onFileChooser(filePathCallback, fileChooserParams)
+    }
+
+    override fun onGeolocationPermissionsShowPrompt(
+        origin: String,
+        callback: GeolocationPermissions.Callback
+    ) {
+        onGeolocationPermission(origin, callback)
     }
 }

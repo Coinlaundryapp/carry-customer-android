@@ -8,11 +8,13 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
+import android.webkit.GeolocationPermissions
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.browser.customtabs.CustomTabsIntent
 import androidx.core.content.ContextCompat
 import com.carrylabs.carry.webviewshell.bridge.BridgeResult
 import com.carrylabs.carry.webviewshell.bridge.CarryBridge
@@ -50,6 +52,10 @@ class MainActivity : AppCompatActivity() {
     // Pending async bridge request state
     private var pendingRequestId: String? = null
     private var pendingMethod: String? = null
+
+    // Pending geolocation permission
+    private var pendingGeolocationCallback: GeolocationPermissions.Callback? = null
+    private var pendingGeolocationOrigin: String? = null
 
     companion object {
         var instance: WeakReference<MainActivity>? = null
@@ -97,7 +103,7 @@ class MainActivity : AppCompatActivity() {
         setupNetworkListener()
 
         // Request notification permission on Android 13+
-        requestNotificationPermission()
+        requestNotificationPermissionOnStartup()
 
         // Load initial URL or handle deep link
         if (savedInstanceState == null) {
@@ -107,6 +113,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        // 명세서 콜백: window.onAppResume()
+        if (::dispatcher.isInitialized) {
+            dispatcher.dispatchAppResume()
+        }
+        // 기존 이벤트도 유지
         dispatchNativeEvent("appResumed", "{}")
     }
 
@@ -133,6 +144,8 @@ class MainActivity : AppCompatActivity() {
         val bridge = CarryBridge(this) { method, requestId, args ->
             runOnUiThread { handleAsyncBridgeRequest(method, requestId, args) }
         }
+        // 이중 등록: 명세서 기준 AndroidBridge + 기존 CarryNative 유지
+        binding.webView.addJavascriptInterface(bridge, "AndroidBridge")
         binding.webView.addJavascriptInterface(bridge, "CarryNative")
 
         // WebViewClient
@@ -172,6 +185,9 @@ class MainActivity : AppCompatActivity() {
                     fileUploadCallback = null
                     false
                 }
+            },
+            onGeolocationPermission = { origin, callback ->
+                handleGeolocationPermission(origin, callback)
             }
         )
     }
@@ -198,11 +214,16 @@ class MainActivity : AppCompatActivity() {
                     errorView.hide()
                     return
                 }
-                if (binding.webView.canGoBack()) {
-                    binding.webView.goBack()
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
+                // 명세서: window.onNativeBackPressed() 존재하면 호출, 없으면 기존 동작
+                dispatcher.checkAndDispatchBackPressed { handled ->
+                    if (!handled) {
+                        if (binding.webView.canGoBack()) {
+                            binding.webView.goBack()
+                        } else {
+                            isEnabled = false
+                            onBackPressedDispatcher.onBackPressed()
+                        }
+                    }
                 }
             }
         })
@@ -251,6 +272,15 @@ class MainActivity : AppCompatActivity() {
         // Deep link from intent filter
         val data = intent.data
         if (data != null) {
+            // 카카오 로그인 OAuth 리다이렉트 처리
+            if (data.scheme == "carry" && data.host == "oauth" && data.path == "/kakao") {
+                val code = data.getQueryParameter("code")
+                if (code != null) {
+                    handleKakaoLoginResult(code)
+                    return
+                }
+            }
+
             val url = resolveDeepLink(data)
             binding.webView.loadUrl(url)
             dispatchNativeEvent("deepLink", """{"url":"$url"}""")
@@ -274,15 +304,33 @@ class MainActivity : AppCompatActivity() {
         binding.webView.loadUrl(BuildConfig.BASE_URL)
     }
 
-    // ── Notification Permission ──────────────────────────────────────
+    // ── Notification Permission (startup) ────────────────────────────
 
-    private fun requestNotificationPermission() {
+    private fun requestNotificationPermissionOnStartup() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
                 != PackageManager.PERMISSION_GRANTED
             ) {
                 permissionHandler.requestSingle(Manifest.permission.POST_NOTIFICATIONS) { _ -> }
             }
+        }
+    }
+
+    // ── Geolocation Permission ───────────────────────────────────────
+
+    private fun handleGeolocationPermission(origin: String, callback: GeolocationPermissions.Callback) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION)
+            == PackageManager.PERMISSION_GRANTED
+        ) {
+            callback.invoke(origin, true, false)
+            return
+        }
+        pendingGeolocationOrigin = origin
+        pendingGeolocationCallback = callback
+        permissionHandler.requestSingle(Manifest.permission.ACCESS_FINE_LOCATION) { granted ->
+            pendingGeolocationCallback?.invoke(pendingGeolocationOrigin ?: origin, granted, false)
+            pendingGeolocationCallback = null
+            pendingGeolocationOrigin = null
         }
     }
 
@@ -294,6 +342,10 @@ class MainActivity : AppCompatActivity() {
             "requestLocation" -> handleLocation(requestId)
             "requestCamera" -> handleCamera(requestId)
             "openGallery" -> handleGallery(requestId)
+            "requestLogin" -> handleRequestLogin(requestId)
+            "requestNotificationPermission" -> handleRequestNotificationPermission(requestId)
+            "openExternalBrowser" -> handleOpenExternalBrowser(requestId, args)
+            "closeApp" -> handleCloseApp(requestId)
         }
     }
 
@@ -448,11 +500,101 @@ class MainActivity : AppCompatActivity() {
         pendingMethod = null
     }
 
+    // ── 명세서 추가 핸들러 ───────────────────────────────────────────
+
+    private fun handleRequestLogin(requestId: String) {
+        val kakaoClientId = BuildConfig.KAKAO_CLIENT_ID
+        if (kakaoClientId.isEmpty()) {
+            dispatcher.sendCallback(
+                BridgeResult(requestId, false, error = "Kakao client ID not configured")
+            )
+            return
+        }
+        pendingRequestId = requestId
+        pendingMethod = "requestLogin"
+
+        val oauthUrl = "https://kauth.kakao.com/oauth/authorize" +
+                "?client_id=$kakaoClientId" +
+                "&redirect_uri=carry://oauth/kakao" +
+                "&response_type=code"
+
+        val customTabsIntent = CustomTabsIntent.Builder().build()
+        customTabsIntent.launchUrl(this, Uri.parse(oauthUrl))
+    }
+
+    private fun handleKakaoLoginResult(code: String) {
+        val reqId = pendingRequestId
+        if (reqId != null && pendingMethod == "requestLogin") {
+            val data = JSONObject().put("code", code)
+            dispatcher.sendCallback(BridgeResult(reqId, true, data))
+            // 명세서 콜백: window.onLoginComplete(token) — 여기서는 code 전달
+            dispatcher.dispatchLoginComplete(code)
+            pendingRequestId = null
+            pendingMethod = null
+        }
+    }
+
+    private fun handleRequestNotificationPermission(requestId: String) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                dispatcher.sendCallback(
+                    BridgeResult(requestId, true, JSONObject().put("granted", true))
+                )
+                return
+            }
+            permissionHandler.requestSingle(Manifest.permission.POST_NOTIFICATIONS) { granted ->
+                dispatcher.sendCallback(
+                    BridgeResult(requestId, true, JSONObject().put("granted", granted))
+                )
+            }
+        } else {
+            // Pre-Android 13 doesn't require runtime permission
+            dispatcher.sendCallback(
+                BridgeResult(requestId, true, JSONObject().put("granted", true))
+            )
+        }
+    }
+
+    private fun handleOpenExternalBrowser(requestId: String, args: JSONObject) {
+        val url = args.optString("url", "")
+        if (url.isEmpty()) {
+            dispatcher.sendCallback(
+                BridgeResult(requestId, false, error = "URL is empty")
+            )
+            return
+        }
+        try {
+            val customTabsIntent = CustomTabsIntent.Builder().build()
+            customTabsIntent.launchUrl(this, Uri.parse(url))
+            dispatcher.sendCallback(BridgeResult(requestId, true))
+        } catch (e: Exception) {
+            dispatcher.sendCallback(
+                BridgeResult(requestId, false, error = "Failed to open browser: ${e.message}")
+            )
+        }
+    }
+
+    private fun handleCloseApp(requestId: String) {
+        dispatcher.sendCallback(BridgeResult(requestId, true))
+        finish()
+    }
+
     // ── Native→JS Event Dispatch (public for FCM service) ───────────
 
     fun dispatchNativeEvent(eventName: String, dataJson: String): Boolean {
         if (!::dispatcher.isInitialized) return false
         dispatcher.sendEvent(eventName, dataJson)
+        return true
+    }
+
+    /**
+     * 명세서 콜백: window.onPushNotification(data) — FCM 서비스에서 호출
+     */
+    fun dispatchPushNotification(dataJson: String): Boolean {
+        if (!::dispatcher.isInitialized) return false
+        dispatcher.dispatchPushNotification(dataJson)
         return true
     }
 }

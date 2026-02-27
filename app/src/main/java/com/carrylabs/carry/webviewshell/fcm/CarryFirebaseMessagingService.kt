@@ -8,6 +8,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.carrylabs.carry.webviewshell.MainActivity
 import com.carrylabs.carry.webviewshell.R
+import com.carrylabs.carry.webviewshell.bridge.WebViewEventDispatcherRegistry
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
 
@@ -16,8 +17,7 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         Log.d(TAG, "FCM token refreshed: $token")
         PushTokenManager.saveToken(this, token)
-        // Notify the WebView via event
-        MainActivity.instance?.get()?.dispatchNativeEvent(
+        WebViewEventDispatcherRegistry.get()?.dispatchNativeEvent(
             "pushTokenRefreshed",
             """{"token":"$token"}"""
         )
@@ -27,16 +27,14 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
         Log.d(TAG, "FCM message received: ${message.data}")
 
         val dataJson = org.json.JSONObject(message.data as Map<*, *>).toString()
+        val dispatcher = WebViewEventDispatcherRegistry.get()
 
-        // 명세서 콜백: window.onPushNotification(data)
-        val dispatched = MainActivity.instance?.get()?.dispatchPushNotification(dataJson) ?: false
+        val dispatched = dispatcher?.dispatchPushNotification(dataJson) ?: false
 
-        // 기존 이벤트도 유지
         if (dispatched) {
-            MainActivity.instance?.get()?.dispatchNativeEvent("pushReceived", dataJson)
+            dispatcher?.dispatchNativeEvent("pushReceived", dataJson)
         }
 
-        // If app is in background or WebView not available, show notification
         if (!dispatched) {
             showNotification(message)
         }

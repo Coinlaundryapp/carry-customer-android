@@ -15,6 +15,8 @@ import androidx.core.content.ContextCompat
 import com.carrylabs.carry.webviewshell.bridge.BridgeResult
 import com.carrylabs.carry.webviewshell.bridge.CarryBridge
 import com.carrylabs.carry.webviewshell.bridge.NativeCallDispatcher
+import com.carrylabs.carry.webviewshell.bridge.WebViewEventDispatcher
+import com.carrylabs.carry.webviewshell.bridge.WebViewEventDispatcherRegistry
 import com.carrylabs.carry.webviewshell.bridge.handlers.BiometricRequestHandler
 import com.carrylabs.carry.webviewshell.bridge.handlers.LocationRequestHandler
 import com.carrylabs.carry.webviewshell.bridge.handlers.LoginRequestHandler
@@ -29,9 +31,8 @@ import com.carrylabs.carry.webviewshell.webview.CarryWebChromeClient
 import com.carrylabs.carry.webviewshell.webview.CarryWebViewClient
 import com.carrylabs.carry.webviewshell.webview.WebViewSetup
 import org.json.JSONObject
-import java.lang.ref.WeakReference
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
 
     private lateinit var binding: ActivityMainBinding
     private lateinit var dispatcher: NativeCallDispatcher
@@ -49,15 +50,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var locationHandler: LocationRequestHandler
     private lateinit var loginHandler: LoginRequestHandler
 
-    companion object {
-        var instance: WeakReference<MainActivity>? = null
-    }
-
     // ── Lifecycle ────────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        instance = WeakReference(this)
+        WebViewEventDispatcherRegistry.register(this)
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -97,9 +94,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        WebViewEventDispatcherRegistry.unregister(this)
         networkCallback?.let { networkUtils.unregisterNetworkCallback(it) }
         binding.webView.destroy()
-        instance = null
         super.onDestroy()
     }
 
@@ -308,13 +305,13 @@ class MainActivity : AppCompatActivity() {
 
     // ── Native→JS Event Dispatch (public for FCM service) ───────────
 
-    fun dispatchNativeEvent(eventName: String, dataJson: String): Boolean {
+    override fun dispatchNativeEvent(eventName: String, dataJson: String): Boolean {
         if (!::dispatcher.isInitialized) return false
         dispatcher.sendEvent(eventName, dataJson)
         return true
     }
 
-    fun dispatchPushNotification(dataJson: String): Boolean {
+    override fun dispatchPushNotification(dataJson: String): Boolean {
         if (!::dispatcher.isInitialized) return false
         dispatcher.dispatchPushNotification(dataJson)
         return true

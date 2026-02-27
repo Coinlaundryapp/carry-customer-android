@@ -20,27 +20,33 @@ class CarryBridge(
     private val onAsyncRequest: (method: String, requestId: String, args: JSONObject) -> Unit
 ) {
 
+    /**
+     * 브릿지 메서드명 상수. CarryBridge와 MainActivity 라우터가 공유하여 오타를 방지한다.
+     */
+    companion object Methods {
+        const val REQUEST_BIOMETRIC = "requestBiometric"
+        const val REQUEST_LOCATION = "requestLocation"
+        const val REQUEST_CAMERA = "requestCamera"
+        const val OPEN_GALLERY = "openGallery"
+        const val REQUEST_LOGIN = "requestLogin"
+        const val REQUEST_NOTIFICATION_PERMISSION = "requestNotificationPermission"
+        const val OPEN_EXTERNAL_BROWSER = "openExternalBrowser"
+        const val CLOSE_APP = "closeApp"
+    }
+
     // ── Synchronous methods ──────────────────────────────────────────
 
     @JavascriptInterface
-    fun getDeviceInfo(): String {
-        return DeviceInfo.collect(context).toString()
-    }
+    fun getDeviceInfo(): String = DeviceInfo.collect(context).toString()
 
     @JavascriptInterface
-    fun getAppVersion(): String {
-        return BuildConfig.VERSION_NAME
-    }
+    fun getAppVersion(): String = BuildConfig.VERSION_NAME
 
     @JavascriptInterface
-    fun getPushToken(): String {
-        return PushTokenManager.getToken(context)
-    }
+    fun getPushToken(): String = PushTokenManager.getToken(context)
 
     @JavascriptInterface
-    fun getFCMToken(): String {
-        return PushTokenManager.getToken(context)
-    }
+    fun getFCMToken(): String = PushTokenManager.getToken(context)
 
     @JavascriptInterface
     fun showToast(message: String) {
@@ -81,9 +87,7 @@ class CarryBridge(
     }
 
     @JavascriptInterface
-    fun shareUrl(title: String, url: String) {
-        shareText(title, url)
-    }
+    fun shareUrl(title: String, url: String) = shareText(title, url)
 
     @JavascriptInterface
     fun copyToClipboard(text: String) {
@@ -104,64 +108,40 @@ class CarryBridge(
 
     @JavascriptInterface
     fun requestBiometric(title: String, description: String): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
-        val args = JSONObject().apply {
+        return dispatchAsync(REQUEST_BIOMETRIC, JSONObject().apply {
             put("title", title)
             put("description", description)
-        }
-        onAsyncRequest("requestBiometric", requestId, args)
-        return requestId
+        })
     }
 
     @JavascriptInterface
-    fun requestLocation(): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
-        onAsyncRequest("requestLocation", requestId, JSONObject())
-        return requestId
-    }
+    fun requestLocation(): String = dispatchAsync(REQUEST_LOCATION)
 
     @JavascriptInterface
-    fun requestCamera(): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
-        onAsyncRequest("requestCamera", requestId, JSONObject())
-        return requestId
-    }
+    fun requestCamera(): String = dispatchAsync(REQUEST_CAMERA)
 
     @JavascriptInterface
-    fun openGallery(): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
-        onAsyncRequest("openGallery", requestId, JSONObject())
-        return requestId
-    }
+    fun openGallery(): String = dispatchAsync(OPEN_GALLERY)
 
     @JavascriptInterface
-    fun requestLogin(): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
-        onAsyncRequest("requestLogin", requestId, JSONObject())
-        return requestId
-    }
+    fun requestLogin(): String = dispatchAsync(REQUEST_LOGIN)
 
     @JavascriptInterface
-    fun requestNotificationPermission(): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
-        onAsyncRequest("requestNotificationPermission", requestId, JSONObject())
-        return requestId
-    }
+    fun requestNotificationPermission(): String = dispatchAsync(REQUEST_NOTIFICATION_PERMISSION)
 
     @JavascriptInterface
     fun openExternalBrowser(url: String): String {
-        val requestId = BridgeCallbackManager.generateRequestId()
-        val args = JSONObject().apply {
-            put("url", url)
-        }
-        onAsyncRequest("openExternalBrowser", requestId, args)
-        return requestId
+        return dispatchAsync(OPEN_EXTERNAL_BROWSER, JSONObject().put("url", url))
     }
 
     @JavascriptInterface
-    fun closeApp(): String {
+    fun closeApp(): String = dispatchAsync(CLOSE_APP)
+
+    // ── Helper ───────────────────────────────────────────────────────
+
+    private fun dispatchAsync(method: String, args: JSONObject = JSONObject()): String {
         val requestId = BridgeCallbackManager.generateRequestId()
-        onAsyncRequest("closeApp", requestId, JSONObject())
+        onAsyncRequest(method, requestId, args)
         return requestId
     }
 }

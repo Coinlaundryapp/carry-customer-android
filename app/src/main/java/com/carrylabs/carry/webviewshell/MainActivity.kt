@@ -247,14 +247,14 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
 
     private fun handleAsyncBridgeRequest(method: String, requestId: String, args: JSONObject) {
         when (method) {
-            "requestBiometric" -> biometricHandler.handle(requestId, args, dispatcher)
-            "requestLocation" -> locationHandler.handle(requestId, dispatcher)
-            "requestCamera" -> mediaHandler.handleCamera(requestId)
-            "openGallery" -> mediaHandler.handleGallery(requestId)
-            "requestLogin" -> loginHandler.handle(requestId, dispatcher)
-            "requestNotificationPermission" -> handleNotificationPermission(requestId)
-            "openExternalBrowser" -> handleOpenExternalBrowser(requestId, args)
-            "closeApp" -> handleCloseApp(requestId)
+            CarryBridge.REQUEST_BIOMETRIC -> biometricHandler.handle(requestId, args, dispatcher)
+            CarryBridge.REQUEST_LOCATION -> locationHandler.handle(requestId, dispatcher)
+            CarryBridge.REQUEST_CAMERA -> mediaHandler.handleCamera(requestId)
+            CarryBridge.OPEN_GALLERY -> mediaHandler.handleGallery(requestId)
+            CarryBridge.REQUEST_LOGIN -> loginHandler.handle(requestId, dispatcher)
+            CarryBridge.REQUEST_NOTIFICATION_PERMISSION -> handleNotificationPermission(requestId)
+            CarryBridge.OPEN_EXTERNAL_BROWSER -> handleOpenExternalBrowser(requestId, args)
+            CarryBridge.CLOSE_APP -> handleCloseApp(requestId)
         }
     }
 

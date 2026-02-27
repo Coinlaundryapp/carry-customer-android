@@ -5,6 +5,7 @@ import android.content.Context
 import android.widget.Toast
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -163,6 +164,93 @@ class CarryBridgeTest {
             bridge.closeApp(),
             bridge.requestLocation(),
             bridge.requestCamera()
+        )
+        assertEquals(ids.size, ids.toSet().size)
+    }
+
+    // ── New sync methods (네이티브 기능 업그레이드) ────────────────────
+
+    @Test
+    fun `getNetworkStatus returns valid JSON with required keys`() {
+        val status = bridge.getNetworkStatus()
+        val json = JSONObject(status)
+        assertTrue(json.has("isConnected"))
+        assertTrue(json.has("type"))
+        assertTrue(json.has("isMetered"))
+    }
+
+    @Test
+    fun `getNetworkStatus type is valid enum value`() {
+        val json = JSONObject(bridge.getNetworkStatus())
+        val type = json.getString("type")
+        assertTrue(
+            "type should be wifi, cellular, or none but was: $type",
+            type in listOf("wifi", "cellular", "none")
+        )
+    }
+
+    // ── New async methods (네이티브 기능 업그레이드) ────────────────────
+
+    @Test
+    fun `checkAppUpdate dispatches async request`() {
+        val requestId = bridge.checkAppUpdate()
+        assertNotNull(requestId)
+        assertTrue(requestId.isNotEmpty())
+        assertEquals(1, asyncRequests.size)
+        assertEquals("checkAppUpdate", asyncRequests[0].first)
+        assertEquals(requestId, asyncRequests[0].second)
+    }
+
+    @Test
+    fun `requestCamera with compression options dispatches with args`() {
+        val requestId = bridge.requestCamera(800, 600, 70)
+        assertEquals(1, asyncRequests.size)
+        val (method, id, args) = asyncRequests[0]
+        assertEquals("requestCamera", method)
+        assertEquals(requestId, id)
+        assertEquals(800, args.getInt("maxWidth"))
+        assertEquals(600, args.getInt("maxHeight"))
+        assertEquals(70, args.getInt("quality"))
+    }
+
+    @Test
+    fun `openGallery with compression options dispatches with args`() {
+        val requestId = bridge.openGallery(512, 512, 60)
+        assertEquals(1, asyncRequests.size)
+        val (method, id, args) = asyncRequests[0]
+        assertEquals("openGallery", method)
+        assertEquals(requestId, id)
+        assertEquals(512, args.getInt("maxWidth"))
+        assertEquals(512, args.getInt("maxHeight"))
+        assertEquals(60, args.getInt("quality"))
+    }
+
+    @Test
+    fun `requestCamera without args has empty JSONObject args`() {
+        bridge.requestCamera()
+        val args = asyncRequests[0].third
+        assertFalse(args.has("maxWidth"))
+        assertFalse(args.has("maxHeight"))
+        assertFalse(args.has("quality"))
+    }
+
+    @Test
+    fun `openGallery without args has empty JSONObject args`() {
+        bridge.openGallery()
+        val args = asyncRequests[0].third
+        assertFalse(args.has("maxWidth"))
+        assertFalse(args.has("maxHeight"))
+        assertFalse(args.has("quality"))
+    }
+
+    @Test
+    fun `all new async methods generate unique requestIds`() {
+        val ids = listOf(
+            bridge.checkAppUpdate(),
+            bridge.requestCamera(800, 600, 70),
+            bridge.openGallery(512, 512, 60),
+            bridge.requestCamera(),
+            bridge.openGallery()
         )
         assertEquals(ids.size, ids.toSet().size)
     }

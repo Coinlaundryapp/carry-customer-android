@@ -24,24 +24,14 @@ class ErrorView(
 
     fun show(errorType: ErrorType) {
         val context = errorContainer.context
-        when (errorType) {
-            ErrorType.NETWORK -> {
-                titleView.text = context.getString(R.string.error_no_network_title)
-                messageView.text = context.getString(R.string.error_no_network_message)
-            }
-            ErrorType.SERVER -> {
-                titleView.text = context.getString(R.string.error_server_title)
-                messageView.text = context.getString(R.string.error_server_message)
-            }
-            ErrorType.SSL -> {
-                titleView.text = context.getString(R.string.error_ssl_title)
-                messageView.text = context.getString(R.string.error_ssl_message)
-            }
-            ErrorType.SAFE_BROWSING -> {
-                titleView.text = context.getString(R.string.error_safe_browsing_title)
-                messageView.text = context.getString(R.string.error_safe_browsing_message)
-            }
+        val (titleRes, messageRes) = when (errorType) {
+            ErrorType.NETWORK -> R.string.error_no_network_title to R.string.error_no_network_message
+            ErrorType.SERVER -> R.string.error_server_title to R.string.error_server_message
+            ErrorType.SSL -> R.string.error_ssl_title to R.string.error_ssl_message
+            ErrorType.SAFE_BROWSING -> R.string.error_safe_browsing_title to R.string.error_safe_browsing_message
         }
+        titleView.text = context.getString(titleRes)
+        messageView.text = context.getString(messageRes)
         errorContainer.visibility = View.VISIBLE
     }
 

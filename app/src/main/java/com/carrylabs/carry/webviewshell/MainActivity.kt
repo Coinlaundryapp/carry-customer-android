@@ -218,24 +218,15 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
     // ── Intent / Deep Link ───────────────────────────────────────────
 
     private fun handleIntent(intent: Intent?) {
-        if (intent == null) { loadBaseUrl(); return }
+        val url = intent?.getStringExtra("deepLink")
+            ?: intent?.data?.let { resolveDeepLink(it) }
 
-        val deepLink = intent.getStringExtra("deepLink")
-        if (deepLink != null) {
-            binding.webView.loadUrl(deepLink)
-            dispatchNativeEvent("deepLink", JSONObject().put("url", deepLink).toString())
-            return
-        }
-
-        val data = intent.data
-        if (data != null) {
-            val url = resolveDeepLink(data)
+        if (url != null) {
             binding.webView.loadUrl(url)
             dispatchNativeEvent("deepLink", JSONObject().put("url", url).toString())
-            return
+        } else {
+            loadBaseUrl()
         }
-
-        loadBaseUrl()
     }
 
     private fun resolveDeepLink(uri: Uri): String {
@@ -281,6 +272,7 @@ class MainActivity : AppCompatActivity(), WebViewEventDispatcher {
                 CarryBridge.CHECK_APP_UPDATE -> handleCheckAppUpdate(requestId)
                 CarryBridge.OPEN_EXTERNAL_BROWSER -> handleOpenExternalBrowser(requestId, args)
                 CarryBridge.CLOSE_APP -> handleCloseApp(requestId)
+                else -> Log.w(TAG, "Unknown bridge method: $method")
             }
         }
     }

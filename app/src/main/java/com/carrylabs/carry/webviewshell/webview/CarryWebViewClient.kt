@@ -45,13 +45,15 @@ class CarryWebViewClient(
             return handleIntentScheme(view, url)
         }
 
+        val classification = UrlWhitelistManager.classify(url)
+
         // Handle payment app schemes
-        if (UrlWhitelistManager.isAppLinkScheme(url)) {
+        if (classification.isAppLinkScheme) {
             return handleAppLinkScheme(view, url)
         }
 
         // Handle special schemes (tel:, mailto:, sms:)
-        if (UrlWhitelistManager.isSpecialScheme(url)) {
+        if (classification.isSpecialScheme) {
             try {
                 view.context.startActivity(Intent(Intent.ACTION_VIEW, request.url))
             } catch (e: ActivityNotFoundException) {
@@ -61,7 +63,7 @@ class CarryWebViewClient(
         }
 
         // Handle whitelisted URLs - load in WebView
-        if (UrlWhitelistManager.isAllowed(url)) {
+        if (classification.isAllowed) {
             return false
         }
 

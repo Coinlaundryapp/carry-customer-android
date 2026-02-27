@@ -8,14 +8,14 @@ import com.google.android.play.core.install.InstallStateUpdatedListener
 import com.google.android.play.core.install.model.AppUpdateType
 import com.google.android.play.core.install.model.InstallStatus
 import com.google.android.play.core.install.model.UpdateAvailability
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
-import kotlin.coroutines.suspendCoroutine
 
 class InAppUpdateManager(private val activity: Activity) {
 
     private val appUpdateManager = AppUpdateManagerFactory.create(activity)
 
-    suspend fun checkForUpdate(): AppUpdateInfo? = suspendCoroutine { cont ->
+    suspend fun checkForUpdate(): AppUpdateInfo? = suspendCancellableCoroutine { cont ->
         appUpdateManager.appUpdateInfo
             .addOnSuccessListener { info ->
                 if (info.updateAvailability() == UpdateAvailability.UPDATE_AVAILABLE

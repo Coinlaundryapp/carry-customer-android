@@ -4,6 +4,12 @@ import android.net.Uri
 
 object UrlWhitelistManager {
 
+    data class UrlClassification(
+        val isSpecialScheme: Boolean,
+        val isAppLinkScheme: Boolean,
+        val isAllowed: Boolean
+    )
+
     private val allowedHosts = setOf(
         "app.carry.com",
         "staging.carry.com",
@@ -47,24 +53,23 @@ object UrlWhitelistManager {
         "nhallonepayansimclick"
     )
 
-    fun isAllowed(url: String): Boolean {
+    fun classify(url: String): UrlClassification {
         val uri = Uri.parse(url)
-        val scheme = uri.scheme ?: return false
-        if (scheme in specialSchemes) return false
-        if (scheme in appLinkSchemes) return false
-        val host = uri.host ?: return false
-        return allowedHosts.any { allowed ->
+        val scheme = uri.scheme ?: return UrlClassification(
+            isSpecialScheme = false, isAppLinkScheme = false, isAllowed = false
+        )
+        val isSpecial = scheme in specialSchemes
+        val isAppLink = scheme in appLinkSchemes
+        val host = uri.host
+        val isAllowed = !isSpecial && !isAppLink && host != null && allowedHosts.any { allowed ->
             host == allowed || host.endsWith(".$allowed")
         }
+        return UrlClassification(isSpecial, isAppLink, isAllowed)
     }
 
-    fun isSpecialScheme(url: String): Boolean {
-        val scheme = Uri.parse(url).scheme ?: return false
-        return scheme in specialSchemes
-    }
+    fun isAllowed(url: String): Boolean = classify(url).isAllowed
 
-    fun isAppLinkScheme(url: String): Boolean {
-        val scheme = Uri.parse(url).scheme ?: return false
-        return scheme in appLinkSchemes
-    }
+    fun isSpecialScheme(url: String): Boolean = classify(url).isSpecialScheme
+
+    fun isAppLinkScheme(url: String): Boolean = classify(url).isAppLinkScheme
 }

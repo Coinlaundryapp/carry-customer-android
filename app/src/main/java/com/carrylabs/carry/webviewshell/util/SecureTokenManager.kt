@@ -2,6 +2,7 @@ package com.carrylabs.carry.webviewshell.util
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.core.content.edit
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 
@@ -30,7 +31,7 @@ object SecureTokenManager {
     }
 
     fun saveToken(context: Context, key: String, value: String) {
-        getPrefs(context).edit().putString(key, value).apply()
+        getPrefs(context).edit { putString(key, value) }
     }
 
     fun getToken(context: Context, key: String): String {
@@ -38,10 +39,10 @@ object SecureTokenManager {
     }
 
     fun removeToken(context: Context, key: String) {
-        getPrefs(context).edit().remove(key).apply()
+        getPrefs(context).edit { remove(key) }
     }
 
     fun clearAll(context: Context) {
-        getPrefs(context).edit().clear().apply()
+        getPrefs(context).edit { clear() }
     }
 }

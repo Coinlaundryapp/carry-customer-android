@@ -9,7 +9,9 @@ object CookieHelper {
     }
 
     fun clearAll() {
-        CookieManager.getInstance().removeAllCookies(null)
-        CookieManager.getInstance().flush()
+        CookieManager.getInstance().apply {
+            removeAllCookies(null)
+            flush()
+        }
     }
 }

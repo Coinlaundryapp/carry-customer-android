@@ -10,6 +10,7 @@ import com.kakao.sdk.user.UserApiClient
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.json.JSONObject
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 
 class LoginRequestHandler(
     private val context: Context
@@ -35,37 +36,32 @@ class LoginRequestHandler(
     }
 
     private suspend fun loginWithKakao(): OAuthToken? {
-        // Try KakaoTalk app login first
         if (UserApiClient.instance.isKakaoTalkLoginAvailable(context)) {
             try {
-                val token = loginWithKakaoTalk()
-                if (token != null) return token
+                return loginWithKakaoTalk()
             } catch (e: Exception) {
-                // If user intentionally cancelled KakaoTalk login, don't fall back
                 if (e is ClientError && e.reason == ClientErrorCause.Cancelled) return null
-                // Otherwise fall through to web login
             }
         }
-        // Fallback to web login
         return loginWithKakaoAccount()
     }
 
     private suspend fun loginWithKakaoTalk(): OAuthToken? = suspendCancellableCoroutine { cont ->
         UserApiClient.instance.loginWithKakaoTalk(context) { token, error ->
-            if (error != null) {
-                cont.resume(null)
-            } else {
-                cont.resume(token)
+            when {
+                error != null -> cont.resumeWithException(error)
+                token != null -> cont.resume(token)
+                else -> cont.resume(null)
             }
         }
     }
 
     private suspend fun loginWithKakaoAccount(): OAuthToken? = suspendCancellableCoroutine { cont ->
         UserApiClient.instance.loginWithKakaoAccount(context) { token, error ->
-            if (error != null) {
-                cont.resume(null)
-            } else {
-                cont.resume(token)
+            when {
+                error != null -> cont.resumeWithException(error)
+                token != null -> cont.resume(token)
+                else -> cont.resume(null)
             }
         }
     }

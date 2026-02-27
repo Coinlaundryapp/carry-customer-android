@@ -21,17 +21,19 @@ class MediaRequestHandler(
     private val imageCompressor: ImageCompressor = ImageCompressor
 ) {
 
+    private data class CompressionOptions(
+        val maxWidth: Int = DEFAULT_MAX_WIDTH,
+        val maxHeight: Int = DEFAULT_MAX_HEIGHT,
+        val quality: Int = DEFAULT_QUALITY
+    )
+
     private var dispatcher: NativeCallDispatcher? = null
 
     private var pendingRequestId: String? = null
     private var cameraImageUri: Uri? = null
     private var fileUploadCallback: ValueCallback<Array<Uri>>? = null
     private var isGalleryPick = false
-
-    // Image compression options (set per-request, reset to defaults after use)
-    private var compressMaxWidth: Int = DEFAULT_MAX_WIDTH
-    private var compressMaxHeight: Int = DEFAULT_MAX_HEIGHT
-    private var compressQuality: Int = DEFAULT_QUALITY
+    private var compressionOptions = CompressionOptions()
 
     companion object {
         const val DEFAULT_MAX_WIDTH = 1024
@@ -72,15 +74,11 @@ class MediaRequestHandler(
     }
 
     fun setCompressionOptions(maxWidth: Int, maxHeight: Int, quality: Int) {
-        compressMaxWidth = maxWidth
-        compressMaxHeight = maxHeight
-        compressQuality = quality
+        compressionOptions = CompressionOptions(maxWidth, maxHeight, quality)
     }
 
     private fun resetCompressionOptions() {
-        compressMaxWidth = DEFAULT_MAX_WIDTH
-        compressMaxHeight = DEFAULT_MAX_HEIGHT
-        compressQuality = DEFAULT_QUALITY
+        compressionOptions = CompressionOptions()
     }
 
     // ── Bridge: Camera ───────────────────────────────────────────────
@@ -117,32 +115,8 @@ class MediaRequestHandler(
     }
 
     private fun handleCameraResult(success: Boolean) {
-        val d = dispatcher ?: return
-        val reqId = pendingRequestId ?: return
-        if (success && cameraImageUri != null) {
-            val compressed = imageCompressor.compress(
-                activity, cameraImageUri!!, compressMaxWidth, compressMaxHeight, compressQuality
-            )
-            if (compressed != null) {
-                val data = JSONObject().apply {
-                    put("uri", compressed.uri.toString())
-                    put("originalUri", compressed.originalUri.toString())
-                    put("width", compressed.width)
-                    put("height", compressed.height)
-                    put("fileSize", compressed.fileSize)
-                }
-                d.sendCallback(BridgeResult(reqId, true, data))
-            } else {
-                // Compression failed — return original URI as fallback
-                val data = JSONObject().put("uri", cameraImageUri.toString())
-                d.sendCallback(BridgeResult(reqId, true, data))
-            }
-        } else {
-            d.sendCallback(BridgeResult(reqId, false, error = "Camera cancelled"))
-        }
-        pendingRequestId = null
-        cameraImageUri = null
-        resetCompressionOptions()
+        val imageUri = if (success) cameraImageUri else null
+        handleMediaResult(imageUri, "Camera cancelled")
     }
 
     // ── Bridge: Gallery ──────────────────────────────────────────────
@@ -156,30 +130,27 @@ class MediaRequestHandler(
     }
 
     private fun handleGalleryResult(uri: Uri?) {
+        handleMediaResult(uri, "Gallery cancelled")
+    }
+
+    // ── Shared media result handler ──────────────────────────────────
+
+    private fun handleMediaResult(uri: Uri?, cancelMessage: String) {
         val d = dispatcher ?: return
         val reqId = pendingRequestId ?: return
         if (uri != null) {
+            val opts = compressionOptions
             val compressed = imageCompressor.compress(
-                activity, uri, compressMaxWidth, compressMaxHeight, compressQuality
+                activity, uri, opts.maxWidth, opts.maxHeight, opts.quality
             )
-            if (compressed != null) {
-                val data = JSONObject().apply {
-                    put("uri", compressed.uri.toString())
-                    put("originalUri", compressed.originalUri.toString())
-                    put("width", compressed.width)
-                    put("height", compressed.height)
-                    put("fileSize", compressed.fileSize)
-                }
-                d.sendCallback(BridgeResult(reqId, true, data))
-            } else {
-                // Compression failed — return original URI as fallback
-                val data = JSONObject().put("uri", uri.toString())
-                d.sendCallback(BridgeResult(reqId, true, data))
-            }
+            val data = compressed?.toJson()
+                ?: JSONObject().put("uri", uri.toString())
+            d.sendCallback(BridgeResult(reqId, true, data))
         } else {
-            d.sendCallback(BridgeResult(reqId, false, error = "Gallery cancelled"))
+            d.sendCallback(BridgeResult(reqId, false, error = cancelMessage))
         }
         pendingRequestId = null
+        cameraImageUri = null
         resetCompressionOptions()
     }
 

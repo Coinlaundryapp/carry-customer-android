@@ -3,7 +3,7 @@ package com.carrylabs.carry.webviewshell
 import android.app.Application
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.content.Context
+import androidx.core.content.getSystemService
 import com.kakao.sdk.common.KakaoSdk
 
 class CarryApplication : Application() {
@@ -27,9 +27,8 @@ class CarryApplication : Application() {
             description = channelDescription
         }
 
-        val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.createNotificationChannel(channel)
+        getSystemService<NotificationManager>()
+            ?.createNotificationChannel(channel)
     }
 
     private fun initKakaoSdk() {

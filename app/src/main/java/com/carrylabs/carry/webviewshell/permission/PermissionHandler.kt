@@ -1,7 +1,6 @@
 package com.carrylabs.carry.webviewshell.permission
 
 import androidx.activity.ComponentActivity
-import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -10,7 +9,7 @@ import kotlin.coroutines.resume
 
 class PermissionHandler(activity: ComponentActivity) {
 
-    private data class PendingRequest(
+    private class PendingRequest(
         val permissions: Array<String>,
         val continuation: CancellableContinuation<Map<String, Boolean>>
     )
@@ -18,7 +17,7 @@ class PermissionHandler(activity: ComponentActivity) {
     private val pendingQueue = LinkedList<PendingRequest>()
     private var isProcessing = false
 
-    private val permissionLauncher: ActivityResultLauncher<Array<String>> =
+    private val permissionLauncher =
         activity.registerForActivityResult(
             ActivityResultContracts.RequestMultiplePermissions()
         ) { results ->

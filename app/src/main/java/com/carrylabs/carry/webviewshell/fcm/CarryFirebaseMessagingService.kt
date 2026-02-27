@@ -2,11 +2,11 @@ package com.carrylabs.carry.webviewshell.fcm
 
 import android.app.NotificationManager
 import android.app.PendingIntent
-import android.content.Context
 import android.content.Intent
 import android.util.Log
-import java.util.concurrent.atomic.AtomicInteger
 import androidx.core.app.NotificationCompat
+import androidx.core.content.getSystemService
+import java.util.concurrent.atomic.AtomicInteger
 import com.carrylabs.carry.webviewshell.MainActivity
 import com.carrylabs.carry.webviewshell.R
 import com.carrylabs.carry.webviewshell.bridge.WebViewEventDispatcherRegistry
@@ -28,16 +28,13 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
     override fun onMessageReceived(message: RemoteMessage) {
         Log.d(TAG, "FCM message received: ${message.data}")
 
-        val dataJson = org.json.JSONObject(message.data as Map<*, *>).toString()
+        val dataJson = JSONObject(message.data as Map<*, *>).toString()
         val dispatcher = WebViewEventDispatcherRegistry.get()
-
         val dispatched = dispatcher?.dispatchPushNotification(dataJson) ?: false
 
         if (dispatched) {
             dispatcher?.dispatchNativeEvent("pushReceived", dataJson)
-        }
-
-        if (!dispatched) {
+        } else {
             showNotification(message)
         }
     }
@@ -73,9 +70,8 @@ class CarryFirebaseMessagingService : FirebaseMessagingService() {
             .setContentIntent(pendingIntent)
             .build()
 
-        val notificationManager =
-            getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        notificationManager.notify(notificationIdCounter.incrementAndGet(), notification)
+        getSystemService<NotificationManager>()
+            ?.notify(notificationIdCounter.incrementAndGet(), notification)
     }
 
     companion object {

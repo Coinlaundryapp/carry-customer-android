@@ -11,6 +11,7 @@ import android.os.VibrationEffect
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import androidx.core.content.getSystemService
 import android.webkit.JavascriptInterface
 import android.widget.Toast
 import com.carrylabs.carry.webviewshell.BuildConfig
@@ -37,6 +38,7 @@ class CarryBridge(
 ) {
 
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val networkUtils by lazy { NetworkUtils(context) }
 
     companion object {
         private const val TAG = "CarryBridge"
@@ -88,11 +90,10 @@ class CarryBridge(
     fun hapticFeedback(type: String) {
         mainHandler.post {
             val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                val manager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as VibratorManager
-                manager.defaultVibrator
+                context.getSystemService<VibratorManager>()!!.defaultVibrator
             } else {
                 @Suppress("DEPRECATION")
-                context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+                context.getSystemService<Vibrator>()!!
             }
 
             val duration = when (type) {
@@ -130,16 +131,13 @@ class CarryBridge(
     /** 시스템 클립보드에 텍스트를 복사한다. */
     @JavascriptInterface
     fun copyToClipboard(text: String) {
-        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-        val clip = ClipData.newPlainText("carry", text)
-        clipboard.setPrimaryClip(clip)
+        val clipboard = context.getSystemService<ClipboardManager>() ?: return
+        clipboard.setPrimaryClip(ClipData.newPlainText("carry", text))
     }
 
     /** 현재 네트워크 상태를 JSON 문자열로 반환한다 ({isConnected, type, isMetered}). */
     @JavascriptInterface
-    fun getNetworkStatus(): String {
-        return NetworkUtils(context).getNetworkStatus().toString()
-    }
+    fun getNetworkStatus(): String = networkUtils.getNetworkStatus().toString()
 
     /** 보안 저장소에 토큰을 저장한다 (EncryptedSharedPreferences). */
     @JavascriptInterface
@@ -166,7 +164,7 @@ class CarryBridge(
     @JavascriptInterface
     fun readClipboard(): String {
         return try {
-            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+            val clipboard = context.getSystemService<ClipboardManager>() ?: return ""
             if (!clipboard.hasPrimaryClip()) return ""
             val clip = clipboard.primaryClip ?: return ""
             if (clip.itemCount == 0) return ""

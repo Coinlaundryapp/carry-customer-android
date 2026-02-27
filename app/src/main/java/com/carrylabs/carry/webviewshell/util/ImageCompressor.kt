@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.content.FileProvider
+import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
 
@@ -16,7 +17,15 @@ object ImageCompressor {
         val width: Int,
         val height: Int,
         val fileSize: Long
-    )
+    ) {
+        fun toJson(): JSONObject = JSONObject().apply {
+            put("uri", uri.toString())
+            put("originalUri", originalUri.toString())
+            put("width", width)
+            put("height", height)
+            put("fileSize", fileSize)
+        }
+    }
 
     fun compress(
         context: Context,

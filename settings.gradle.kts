@@ -20,6 +20,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "CarryWebViewShell"
+rootProject.name = "carry-customer-android"
 include(":app")
  

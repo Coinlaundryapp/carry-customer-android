@@ -1,4 +1,4 @@
-# CarryWebViewShell ProGuard Rules
+# carry-customer-android ProGuard Rules
 
 # Keep JavaScript interface methods
 -keepclassmembers class com.carrylabs.carry.webviewshell.bridge.CarryBridge {

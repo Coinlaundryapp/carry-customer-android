@@ -1,4 +1,4 @@
-# CarryWebViewShell
+# carry-customer-android
 
 Carry 서비스의 Android WebView Shell 앱. 웹 앱을 네이티브 WebView로 래핑하고, JavaScript Bridge를 통해 네이티브 기능(생체인증, 위치, 카메라, 푸시, 보안 토큰 저장, 인앱 업데이트 등)을 웹에 노출한다.
 

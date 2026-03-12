@@ -1,6 +1,6 @@
 # Native Bridge Changes — Frontend Handoff
 
-이 문서는 CarryWebViewShell 네이티브 업그레이드에 따른 JavaScript Bridge API 변경 사항을 프론트엔드 엔지니어에게 전달하기 위해 작성되었습니다.
+이 문서는 carry-customer-android 네이티브 업그레이드에 따른 JavaScript Bridge API 변경 사항을 프론트엔드 엔지니어에게 전달하기 위해 작성되었습니다.
 
 ---
 
